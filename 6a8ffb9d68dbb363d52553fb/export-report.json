@@ -1,0 +1,25 @@
+{
+  "exportedAt": "2026-08-27T18:02:33.135Z",
+  "exportDurationMs": 58352,
+  "fileCount": 94,
+  "assetCount": 1,
+  "resolvedAssetCount": 0,
+  "missingAssets": [
+    {
+      "url": "https://media.db.com/images/public/6a8ffb9d68dbb363d52553fb/0a2afae49_pixel-background-abstract-blue-texture-with-pixelated-design-and-an-aspect-ratio-of-43-vector-image-2FKP6K4.jpg",
+      "error": "Failed to fetch"
+    }
+  ],
+  "warnings": [
+    "Preview iframe scan failed: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"https://app.base44.com\" from accessing a cross-origin frame."
+  ],
+  "diagnostics": {
+    "exportState": "BUILDING_FILE_TREE",
+    "assetCount": 1,
+    "pendingFetches": 0,
+    "pendingImages": 0,
+    "domNodeCount": 6113,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+    "exportDurationMs": 58353
+  }
+}
