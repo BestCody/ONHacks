@@ -1,5 +1,3 @@
-const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }) } } };
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -39,7 +37,15 @@ export default function Apply() {
     }
     setLoading(true);
     try {
-      await db.entities.Application.create(form);
+      const response = await fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || 'Submission failed. Please try again.');
+      }
       setDone(true);
     } catch (err) {
       setError(err.message || "Submission failed. Please try again.");
@@ -56,8 +62,8 @@ export default function Apply() {
         <div className="max-w-md text-center bg-white rounded-2xl shadow-xl p-10">
           <h2 className="font-bubbly text-4xl text-[#FF2E2E] mb-3">You're in!</h2>
           <p className="text-black/70 mb-8">We received your application. See you at OTHacks — Nov 12.</p>
-          <Button onClick={() => navigate('/dashboard')} className="bg-blue-600 hover:bg-blue-700 text-white">
-            Back to dashboard
+          <Button onClick={() => navigate('/')} className="bg-blue-600 hover:bg-blue-700 text-white">
+            Back to home
           </Button>
         </div>
       </div>
@@ -70,9 +76,9 @@ export default function Apply() {
       style={{ backgroundImage: `url(${BG})`, backgroundRepeat: 'no-repeat', backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#163d6b' }}>
       <div className="max-w-xl mx-auto">
         <button
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate('/')}
           className="flex items-center gap-2 text-white/90 hover:text-white mb-6 text-sm font-medium drop-shadow">
-          <ArrowLeft size={16} /> Back to dashboard
+          <ArrowLeft size={16} /> Back home
         </button>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">

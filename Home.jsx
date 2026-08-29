@@ -1,9 +1,7 @@
-const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }) } } };
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, ArrowRight, Clock, Trophy, Zap, Code2, Brain, Globe, Shield } from 'lucide-react';
+import { X, ArrowRight, Trophy, Code2, Brain, Globe, Shield } from 'lucide-react';
 import MinecartOrganizers from '@/components/MinecartOrganizers';
 import LoadingScreen from '@/components/LoadingScreen';
 
@@ -214,7 +212,7 @@ export default function Home() {
 
         {/* Register CTA bottom-right */}
         <motion.button
-          onClick={() => navigate('/register')}
+          onClick={() => navigate('/apply')}
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.7, type: "spring" }}
