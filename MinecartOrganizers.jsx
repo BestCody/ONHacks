@@ -32,7 +32,7 @@ export default function MinecartOrganizers() {
     <div className="relative w-full overflow-hidden py-8">
       <div className="w-full overflow-hidden">
         <motion.div
-          className="flex"
+          className="flex w-max"
           animate={{ x: ["0%", "-50%"] }}
           transition={{ duration: 26, repeat: Infinity, ease: "linear" }}>
           {loop.map((o, i) => (
