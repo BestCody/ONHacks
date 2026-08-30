@@ -1,8 +1,12 @@
 import { Toaster } from "@/components/ui/toaster"
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import ScrollToTop from '@/components/ScrollToTop';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { AuthProvider } from '@/context/AuthContext';
 import Home from '@/pages/Home';
 import Apply from '@/pages/Apply';
+import AuthPage from '@/pages/AuthPage';
+import Dashboard from '@/pages/Dashboard';
 
 const NotFound = () => (
   <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
@@ -16,16 +20,29 @@ const NotFound = () => (
 
 function App() {
   return (
-    <Router>
-      <ScrollToTop />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/apply" element={<Apply />} />
-        <Route path="/dashboard" element={<Navigate to="/apply" replace />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-      <Toaster />
-    </Router>
+    <AuthProvider>
+      <Router>
+        <ScrollToTop />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/apply" element={<Apply />} />
+          <Route path="/signin" element={<AuthPage mode="signin" />} />
+          <Route path="/signup" element={<AuthPage mode="signup" />} />
+          <Route path="/login" element={<Navigate to="/signin" replace />} />
+          <Route path="/register" element={<Navigate to="/signup" replace />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        <Toaster />
+      </Router>
+    </AuthProvider>
   )
 }
 

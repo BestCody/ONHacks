@@ -1,16 +1,40 @@
 import 'dotenv/config';
 import express from 'express';
 import pg from 'pg';
+import {
+  createHash,
+  randomBytes,
+  scrypt as scryptCallback,
+  timingSafeEqual,
+} from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const { Pool } = pg;
+const scrypt = (password, salt, keyLength, options) => new Promise((resolve, reject) => {
+  scryptCallback(password, salt, keyLength, options, (error, derivedKey) => {
+    if (error) {
+      reject(error);
+      return;
+    }
+    resolve(derivedKey);
+  });
+});
+
 const app = express();
 const port = Number(process.env.PORT || 10000);
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(serverDirectory, '..');
 const distDirectory = path.join(projectRoot, 'dist');
 const databaseUrl = process.env.DATABASE_URL;
+const sessionCookieName = 'othacks_session';
+const sessionDurationSeconds = 60 * 60 * 24 * 30;
+const passwordHashOptions = {
+  N: 16_384,
+  r: 8,
+  p: 1,
+  maxmem: 32 * 1024 * 1024,
+};
 
 const pool = databaseUrl
   ? new Pool({
@@ -41,8 +65,201 @@ const applicationTable = `
   )
 `;
 
+const authTables = `
+  CREATE TABLE IF NOT EXISTS users (
+    id BIGSERIAL PRIMARY KEY,
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
+  CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at);
+`;
+
+const eventApplicationTable = `
+  CREATE TABLE IF NOT EXISTS event_applications (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    full_name TEXT NOT NULL,
+    team TEXT NOT NULL,
+    github TEXT NOT NULL,
+    high_school BOOLEAN NOT NULL,
+    supplies BOOLEAN NOT NULL,
+    heard_about TEXT NOT NULL,
+    email TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'received',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS event_applications_user_id_idx ON event_applications(user_id);
+  CREATE INDEX IF NOT EXISTS event_applications_email_idx ON event_applications(email);
+`;
+
 function clean(value) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function publicUser(row) {
+  return {
+    id: Number(row.id),
+    name: row.full_name,
+    email: row.email,
+    createdAt: row.created_at,
+  };
+}
+
+function parseCookies(cookieHeader = '') {
+  return cookieHeader.split(';').reduce((cookies, part) => {
+    const separatorIndex = part.indexOf('=');
+    if (separatorIndex === -1) return cookies;
+
+    const key = part.slice(0, separatorIndex).trim();
+    const value = part.slice(separatorIndex + 1).trim();
+    if (key) {
+      try {
+        cookies[key] = decodeURIComponent(value);
+      } catch {
+        cookies[key] = '';
+      }
+    }
+    return cookies;
+  }, {});
+}
+
+function sessionTokenFromRequest(request) {
+  return parseCookies(request.headers.cookie)[sessionCookieName] || '';
+}
+
+function hashSessionToken(token) {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+function setSessionCookie(response, token) {
+  const attributes = [
+    `${sessionCookieName}=${encodeURIComponent(token)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${sessionDurationSeconds}`,
+  ];
+
+  if (process.env.NODE_ENV === 'production') {
+    attributes.push('Secure');
+  }
+
+  response.setHeader('Set-Cookie', attributes.join('; '));
+}
+
+function clearSessionCookie(response) {
+  const attributes = [
+    `${sessionCookieName}=`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    'Max-Age=0',
+  ];
+
+  if (process.env.NODE_ENV === 'production') {
+    attributes.push('Secure');
+  }
+
+  response.setHeader('Set-Cookie', attributes.join('; '));
+}
+
+async function hashPassword(password) {
+  const salt = randomBytes(16).toString('hex');
+  const derivedKey = await scrypt(password, salt, 64, passwordHashOptions);
+  return `scrypt:${salt}:${derivedKey.toString('hex')}`;
+}
+
+async function verifyPassword(password, storedHash) {
+  const [algorithm, salt, storedKeyHex] = String(storedHash || '').split(':');
+  if (algorithm !== 'scrypt' || !salt || !storedKeyHex) return false;
+
+  let storedKey;
+  try {
+    storedKey = Buffer.from(storedKeyHex, 'hex');
+  } catch {
+    return false;
+  }
+
+  if (storedKey.length === 0) return false;
+
+  const derivedKey = await scrypt(password, salt, storedKey.length, passwordHashOptions);
+  return derivedKey.length === storedKey.length && timingSafeEqual(derivedKey, storedKey);
+}
+
+function validateAuthInput(body = {}, { requireName = false } = {}) {
+  const input = body && typeof body === 'object' ? body : {};
+  const name = clean(input.name);
+  const email = clean(input.email).toLowerCase();
+  const password = typeof input.password === 'string' ? input.password : '';
+  const errors = {};
+
+  if (requireName && (name.length < 2 || name.length > 120)) {
+    errors.name = 'Enter your name (2 to 120 characters).';
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+    errors.email = 'Enter a valid email address.';
+  }
+  if (password.length < 8 || password.length > 128) {
+    errors.password = 'Use a password between 8 and 128 characters.';
+  }
+
+  return { name, email, password, errors };
+}
+
+async function findAuthenticatedUser(request) {
+  if (!pool) return null;
+
+  const token = sessionTokenFromRequest(request);
+  if (!token) return null;
+
+  const result = await pool.query(
+    `SELECT u.id, u.full_name, u.email, u.created_at
+     FROM sessions s
+     INNER JOIN users u ON u.id = s.user_id
+     WHERE s.token_hash = $1 AND s.expires_at > NOW()`,
+    [hashSessionToken(token)],
+  );
+
+  return result.rows[0] ? publicUser(result.rows[0]) : null;
+}
+
+async function createSession(userId, response) {
+  const token = randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + sessionDurationSeconds * 1000);
+
+  await pool.query(
+    `INSERT INTO sessions (token_hash, user_id, expires_at)
+     VALUES ($1, $2, $3)`,
+    [hashSessionToken(token), userId, expiresAt],
+  );
+
+  setSessionCookie(response, token);
+}
+
+async function requireAuth(request, response, next) {
+  try {
+    const user = await findAuthenticatedUser(request);
+    if (!user) {
+      return response.status(401).json({ error: 'Please sign in to continue.' });
+    }
+
+    request.user = user;
+    return next();
+  } catch (error) {
+    return next(error);
+  }
 }
 
 function validateApplication(body = {}) {
@@ -78,6 +295,44 @@ function validateApplication(body = {}) {
   return { application, errors };
 }
 
+function validateEventApplication(body = {}) {
+  const input = body && typeof body === 'object' ? body : {};
+  const application = {
+    fullName: clean(input.name),
+    team: clean(input.team),
+    github: clean(input.github),
+    highSchool: input.highSchool === true || input.highSchool === 'YES',
+    supplies: input.supplies === true || input.supplies === 'YES',
+    heardAbout: clean(input.heardAbout),
+    email: clean(input.email).toLowerCase(),
+  };
+
+  const errors = {};
+  if (!application.fullName || application.fullName.length > 120) {
+    errors.name = 'Enter a name up to 120 characters.';
+  }
+  if (!['Yes', 'No'].includes(application.team)) {
+    errors.team = 'Choose whether you are with a team.';
+  }
+  if (!application.github || application.github.length > 500) {
+    errors.github = 'Enter your GitHub username or profile link.';
+  }
+  if (!application.highSchool) {
+    errors.highSchool = 'You must confirm that you are in high school.';
+  }
+  if (!application.supplies) {
+    errors.supplies = 'You must confirm that you are bringing your supplies.';
+  }
+  if (!application.heardAbout || application.heardAbout.length > 500) {
+    errors.heardAbout = 'Tell us how you heard about OTHacks.';
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(application.email) || application.email.length > 254) {
+    errors.email = 'Enter a valid email address.';
+  }
+
+  return { application, errors };
+}
+
 app.disable('x-powered-by');
 app.use(express.json({ limit: '32kb' }));
 
@@ -91,6 +346,149 @@ app.get('/api/health', async (_request, response) => {
     return response.json({ status: 'ok', database: 'connected' });
   } catch {
     return response.status(503).json({ status: 'error', database: 'unavailable' });
+  }
+});
+
+app.get('/api/auth/me', async (request, response, next) => {
+  try {
+    return response.json({ user: await findAuthenticatedUser(request) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/auth/signup', async (request, response, next) => {
+  if (!pool) {
+    return response.status(503).json({
+      error: 'Account creation is temporarily unavailable. Please try again later.',
+    });
+  }
+
+  const { name, email, password, errors } = validateAuthInput(request.body, {
+    requireName: true,
+  });
+  if (Object.keys(errors).length > 0) {
+    return response.status(400).json({ error: 'Please correct the highlighted fields.', errors });
+  }
+
+  try {
+    const passwordHash = await hashPassword(password);
+    const result = await pool.query(
+      `INSERT INTO users (full_name, email, password_hash)
+       VALUES ($1, $2, $3)
+       RETURNING id, full_name, email, created_at`,
+      [name, email, passwordHash],
+    );
+
+    await createSession(result.rows[0].id, response);
+    return response.status(201).json({ user: publicUser(result.rows[0]) });
+  } catch (error) {
+    if (error?.code === '23505') {
+      return response.status(409).json({
+        error: 'An account with that email already exists. Try signing in instead.',
+      });
+    }
+    return next(error);
+  }
+});
+
+app.post('/api/auth/signin', async (request, response, next) => {
+  if (!pool) {
+    return response.status(503).json({
+      error: 'Sign in is temporarily unavailable. Please try again later.',
+    });
+  }
+
+  const { email, password, errors } = validateAuthInput(request.body);
+  if (Object.keys(errors).length > 0) {
+    return response.status(400).json({ error: 'Please enter a valid email and password.', errors });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT id, full_name, email, password_hash, created_at
+       FROM users
+       WHERE email = $1`,
+      [email],
+    );
+    const userRecord = result.rows[0];
+
+    if (!userRecord || !(await verifyPassword(password, userRecord.password_hash))) {
+      return response.status(401).json({ error: 'Email or password is incorrect.' });
+    }
+
+    await createSession(userRecord.id, response);
+    return response.json({ user: publicUser(userRecord) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/auth/signout', async (request, response, next) => {
+  try {
+    const token = sessionTokenFromRequest(request);
+    if (pool && token) {
+      await pool.query('DELETE FROM sessions WHERE token_hash = $1', [hashSessionToken(token)]);
+    }
+
+    clearSessionCookie(response);
+    return response.json({ ok: true });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/event-applications/me', requireAuth, async (request, response, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, full_name, team, github, status, created_at
+       FROM event_applications
+       WHERE user_id = $1 OR (user_id IS NULL AND email = $2)
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [request.user.id, request.user.email],
+    );
+
+    return response.json({ application: result.rows[0] || null });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/event-applications', async (request, response, next) => {
+  if (!pool) {
+    return response.status(503).json({
+      error: 'Applications are temporarily unavailable. Please try again later.',
+    });
+  }
+
+  const { application, errors } = validateEventApplication(request.body);
+  if (Object.keys(errors).length > 0) {
+    return response.status(400).json({ error: 'Please correct the highlighted fields.', errors });
+  }
+
+  try {
+    const user = await findAuthenticatedUser(request);
+    const result = await pool.query(
+      `INSERT INTO event_applications
+        (user_id, full_name, team, github, high_school, supplies, heard_about, email)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, full_name, team, github, status, created_at`,
+      [
+        user?.id || null,
+        application.fullName,
+        application.team,
+        application.github,
+        application.highSchool,
+        application.supplies,
+        application.heardAbout,
+        application.email,
+      ],
+    );
+
+    return response.status(201).json({ application: result.rows[0] });
+  } catch (error) {
+    return next(error);
   }
 });
 
@@ -162,7 +560,10 @@ async function start() {
   }
 
   if (pool) {
+    await pool.query(authTables);
+    await pool.query(eventApplicationTable);
     await pool.query(applicationTable);
+    await pool.query('DELETE FROM sessions WHERE expires_at <= NOW()');
   } else {
     console.warn('DATABASE_URL is not set; registration writes are disabled.');
   }

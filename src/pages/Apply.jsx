@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
@@ -6,24 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import { ArrowLeft, Loader2, Send } from 'lucide-react';
-
-const GOOGLE_FORM_URL =
-  'https://docs.google.com/forms/d/e/1FAIpQLScjVOvcX4mo0q_tCHkfDX7-h-qtPhXiPGDei7XttNhj0QojAA/formResponse';
-
-const ENTRY = {
-  name: 'entry.2034160097',
-  team: 'entry.1501179330',
-  github: 'entry.229203195',
-  highSchool: 'entry.1740451237',
-  supplies: 'entry.1883098233',
-  heardAbout: 'entry.1851102738',
-  email: 'entry.1236791057',
-};
+import { useAuth } from '@/context/AuthContext';
 
 const BG = '/assets/apply-bg.webp';
 
 export default function Apply() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [form, setForm] = useState({
     name: '',
@@ -38,6 +27,16 @@ export default function Apply() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+
+    setForm((previous) => ({
+      ...previous,
+      name: previous.name || user.name,
+      email: previous.email || user.email,
+    }));
+  }, [user]);
 
   const setField = (field) => (event) => {
     setForm((previous) => ({
@@ -91,21 +90,27 @@ export default function Apply() {
     setLoading(true);
 
     try {
-      const formData = new FormData();
-
-      formData.append(ENTRY.name, form.name.trim());
-      formData.append(ENTRY.team, form.team);
-      formData.append(ENTRY.github, form.github.trim());
-      formData.append(ENTRY.highSchool, 'YES');
-      formData.append(ENTRY.supplies, 'YES');
-      formData.append(ENTRY.heardAbout, form.heardAbout.trim());
-      formData.append(ENTRY.email, form.email.trim());
-
-      await fetch(GOOGLE_FORM_URL, {
+      const response = await fetch('/api/event-applications', {
         method: 'POST',
-        mode: 'no-cors',
-        body: formData,
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          team: form.team,
+          github: form.github.trim(),
+          highSchool: form.highSchool,
+          supplies: form.supplies,
+          heardAbout: form.heardAbout.trim(),
+          email: form.email.trim(),
+        }),
       });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Submission failed. Please try again.');
+      }
 
       setDone(true);
     } catch (err) {
@@ -179,6 +184,24 @@ export default function Apply() {
           <p className="text-black/60 mb-8">
             Tell us about you and get ready to build something awesome!
           </p>
+
+          {user ? (
+            <p className="mb-5 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
+              Signed in as {user.email}. This application will be saved to your account.
+            </p>
+          ) : (
+            <p className="mb-5 text-sm text-black/60">
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={() => navigate('/signin?returnTo=%2Fapply')}
+                className="font-semibold text-[#0A1A2A] underline underline-offset-2 hover:text-[#FF2E2E]"
+              >
+                Sign in first
+              </button>
+              {' '}to prefill your details.
+            </p>
+          )}
 
           {error && (
             <div className="mb-5 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">

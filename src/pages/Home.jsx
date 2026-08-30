@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowRight, Trophy, Code2, Brain, Globe, Shield } from 'lucide-react';
+import { X, ArrowRight, Trophy, Code2, Brain, Globe, Shield, Menu } from 'lucide-react';
 import MinecartOrganizers from '@/components/MinecartOrganizers';
 import LoadingScreen from '@/components/LoadingScreen';
+import { useAuth } from '@/context/AuthContext';
 
 const VIDEO_URL = "/assets/hero.mp4";
 const SEA_BG = "/assets/sea-bg.jpg";
@@ -26,12 +27,31 @@ const SCHEDULE = [
 
 function MorphMenu() {
   const [open, setOpen] = useState(false);
-  const items = ["Home", "Tracks", "Schedule", "Register"];
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const items = ["Home", "Tracks", "Schedule"];
+
   return (
     <div className="fixed top-6 right-6 z-50">
-      
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => navigate(user ? '/dashboard' : '/signin')}
+          className="glass-sheet border border-white/20 rounded-full px-4 py-2 font-tech text-[0.65rem] uppercase tracking-widest text-[#F4F4F9] hover:border-[#FF2E2E] hover:text-[#FF2E2E] transition-colors"
+        >
+          {user ? 'Account' : 'Sign in'}
+        </button>
+        <button
+          type="button"
+          aria-label={open ? 'Close menu' : 'Open menu'}
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+          className="w-11 h-11 flex items-center justify-center rounded-full glass-sheet border border-white/20 text-[#F4F4F9] hover:text-[#FF2E2E] transition-colors"
+        >
+          {open ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      </div>
 
-      
       <AnimatePresence>
         {open &&
         <motion.nav
@@ -41,16 +61,26 @@ function MorphMenu() {
           transition={{ type: "spring", stiffness: 260, damping: 22 }}
           className="absolute top-16 right-0 w-64 rounded-full glass-sheet border border-white/20 px-8 py-6 flex flex-col gap-4 origin-top-right">
           
-            {items.map((it, i) =>
-          <a
-            key={it}
-            href={`#${it.toLowerCase()}`}
-            onClick={() => setOpen(false)}
-            className="font-tech text-sm uppercase tracking-widest text-[#F4F4F9] hover:text-[#FF2E2E] transition-colors">
-            
-                {`0${i + 1}`}  {it}
+            {items.map((it, i) => (
+              <a
+                key={it}
+                href={it === 'Home' ? '#top' : `#${it.toLowerCase()}`}
+                onClick={() => setOpen(false)}
+                className="font-tech text-sm uppercase tracking-widest text-[#F4F4F9] hover:text-[#FF2E2E] transition-colors"
+              >
+                {`0${i + 1}`} {it}
               </a>
-          )}
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                navigate('/apply');
+              }}
+              className="text-left font-tech text-sm uppercase tracking-widest text-[#F4F4F9] hover:text-[#FF2E2E] transition-colors"
+            >
+              04 Register
+            </button>
           </motion.nav>
         }
       </AnimatePresence>
@@ -171,7 +201,7 @@ export default function Home() {
       <MorphMenu />
 
       {/* ===== HERO ===== */}
-      <section ref={heroRef} className="relative h-screen w-full overflow-hidden">
+      <section id="top" ref={heroRef} className="relative h-screen w-full overflow-hidden">
         <video
           autoPlay
           loop

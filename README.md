@@ -4,9 +4,10 @@ Standalone React/Vite registration site with an Express API and PostgreSQL stora
 
 ## Project layout
 
-- `src/pages/`: route-level pages (`Home` and `Apply`)
+- `src/pages/`: route-level pages (`Home`, `Apply`, authentication, and dashboard)
 - `src/components/`: app-specific components
 - `src/components/ui/`: reusable shadcn/Radix UI primitives
+- `src/context/AuthContext.jsx`: session-aware frontend auth state
 - `src/hooks/`: shared React hooks
 - `src/lib/`: shared utilities
 - `server/index.js`: Express API, database initialization, and static hosting
@@ -38,12 +39,20 @@ Standalone React/Vite registration site with an Express API and PostgreSQL stora
 Open the Vite URL, usually `http://localhost:5173`. Vite proxies `/api` to
 the server on port `10000`.
 
-The server creates the `applications` table automatically on startup.
+The server creates the `applications`, `event_applications`, `users`, and `sessions` tables
+automatically on startup. Accounts use salted scrypt password hashes and
+HTTP-only database-backed session cookies.
+
+Authentication routes are `/signup`, `/signin`, and the protected `/dashboard`.
+The legacy `/register` and `/login` paths redirect to the corresponding auth
+pages.
 
 ## Deploy on Render
 
 Use a Render **Web Service**, not a Static Site. The Express server serves the
 compiled frontend and handles `/api/applications`.
+It also handles account sessions and independent event applications through
+`/api/auth/*` and `/api/event-applications`.
 
 Use these settings:
 
