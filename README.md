@@ -1,4 +1,4 @@
-# OTHacks
+# ONHacks
 
 Standalone React/Vite registration site with an Express API and PostgreSQL storage.
 
