@@ -7,88 +7,54 @@ import { Label } from '@/components/ui/label';
 
 import { ArrowLeft, Loader2, Send } from 'lucide-react';
 
-
-/* =====================================================
-   GOOGLE FORM
-   ===================================================== */
-
 const GOOGLE_FORM_URL =
   'https://docs.google.com/forms/d/e/1FAIpQLScjVOvcX4mo0q_tCHkfDX7-h-qtPhXiPGDei7XttNhj0QojAA/formResponse';
 
-
-/* =====================================================
-   GOOGLE FORM QUESTION IDs
-   ===================================================== */
-
 const ENTRY = {
-  fullName: 'entry.2034160097',
+  name: 'entry.2034160097',
   team: 'entry.1501179330',
   github: 'entry.229203195',
   highSchool: 'entry.1740451237',
   supplies: 'entry.1883098233',
-  heardAbout: 'entry.1851102738'
+  heardAbout: 'entry.1851102738',
 };
-
-
-/* =====================================================
-   BACKGROUND
-   ===================================================== */
 
 const BG = '/assets/apply-bg.webp';
 
-
 export default function Apply() {
-
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
-    fullName: '',
+    name: '',
     team: '',
     github: '',
     highSchool: false,
     supplies: false,
-    heardAbout: ''
+    heardAbout: '',
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
 
-
-  /* ===================================================
-     UPDATE INPUTS
-     =================================================== */
-
-  const setField = (field) => (e) => {
+  const setField = (field) => (event) => {
     setForm((previous) => ({
       ...previous,
-      [field]: e.target.value
+      [field]: event.target.value,
     }));
   };
 
-
-  /* ===================================================
-     SUBMIT TO GOOGLE FORM
-     =================================================== */
-
-  const handleSubmit = async (e) => {
-
-    e.preventDefault();
-
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError('');
 
-
-    /* -----------------------------------------------
-       VALIDATION
-       ----------------------------------------------- */
-
-    if (!form.fullName.trim()) {
+    if (!form.name.trim()) {
       setError('Please enter your first and last name.');
       return;
     }
 
     if (!form.team) {
-      setError('Please select Yes or No for the team question.');
+      setError('Please select whether you are with a team.');
       return;
     }
 
@@ -116,89 +82,34 @@ export default function Apply() {
       return;
     }
 
-
     setLoading(true);
 
-
     try {
-
-      /* ---------------------------------------------
-         CREATE GOOGLE FORM DATA
-         --------------------------------------------- */
-
       const formData = new FormData();
 
-      formData.append(
-        ENTRY.fullName,
-        form.fullName.trim()
-      );
-
-      formData.append(
-        ENTRY.team,
-        form.team
-      );
-
-      formData.append(
-        ENTRY.github,
-        form.github.trim()
-      );
-
-      formData.append(
-        ENTRY.highSchool,
-        'YES'
-      );
-
-      formData.append(
-        ENTRY.supplies,
-        'YES'
-      );
-
-      formData.append(
-        ENTRY.heardAbout,
-        form.heardAbout.trim()
-      );
-
-
-      /* ---------------------------------------------
-         SEND TO GOOGLE FORMS
-         --------------------------------------------- */
+      formData.append(ENTRY.name, form.name.trim());
+      formData.append(ENTRY.team, form.team);
+      formData.append(ENTRY.github, form.github.trim());
+      formData.append(ENTRY.highSchool, 'YES');
+      formData.append(ENTRY.supplies, 'YES');
+      formData.append(ENTRY.heardAbout, form.heardAbout.trim());
 
       await fetch(GOOGLE_FORM_URL, {
         method: 'POST',
         mode: 'no-cors',
-        body: formData
+        body: formData,
       });
 
-
-      /* ---------------------------------------------
-         SUCCESS
-         --------------------------------------------- */
-
       setDone(true);
-
     } catch (err) {
-
       console.error(err);
-
-      setError(
-        'Submission failed. Please try again.'
-      );
-
+      setError('Submission failed. Please try again.');
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
-
-  /* ===================================================
-     SUCCESS SCREEN
-     =================================================== */
-
   if (done) {
-
     return (
       <div
         className="min-h-screen flex items-center justify-center px-4"
@@ -207,12 +118,10 @@ export default function Apply() {
           backgroundRepeat: 'no-repeat',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          backgroundColor: '#163d6b'
+          backgroundColor: '#163d6b',
         }}
       >
-
         <div className="max-w-md text-center bg-white rounded-2xl shadow-xl p-10">
-
           <h2 className="font-bubbly text-4xl text-[#FF2E2E] mb-3">
             You're in!
           </h2>
@@ -228,18 +137,10 @@ export default function Apply() {
           >
             Back to home
           </Button>
-
         </div>
-
       </div>
     );
-
   }
-
-
-  /* ===================================================
-     APPLICATION PAGE
-     =================================================== */
 
   return (
     <div
@@ -249,14 +150,10 @@ export default function Apply() {
         backgroundRepeat: 'no-repeat',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        backgroundColor: '#163d6b'
+        backgroundColor: '#163d6b',
       }}
     >
-
       <div className="max-w-xl mx-auto">
-
-
-        {/* BACK HOME */}
 
         <button
           onClick={() => navigate('/')}
@@ -266,13 +163,7 @@ export default function Apply() {
           Back home
         </button>
 
-
-        {/* FORM CARD */}
-
         <div className="bg-white rounded-2xl shadow-xl p-8">
-
-
-          {/* TITLE */}
 
           <h1 className="font-bubbly text-4xl text-[#0A1A2A] mb-2">
             Apply to OTHacks
@@ -282,51 +173,33 @@ export default function Apply() {
             Tell us about you and get ready to build something awesome!
           </p>
 
-
-          {/* ERROR */}
-
           {error && (
             <div className="mb-5 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
               {error}
             </div>
           )}
 
+          <form onSubmit={handleSubmit} className="space-y-5">
 
-          {/* FORM */}
-
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-5"
-          >
-
-
-            {/* =========================================
-                FIRST NAME + LAST NAME
-            ========================================== */}
+            {/* First name and last name */}
 
             <div className="space-y-2">
-
-              <Label htmlFor="fullName">
+              <Label htmlFor="name">
                 First name and last name *
               </Label>
 
               <Input
-                id="fullName"
-                value={form.fullName}
-                onChange={setField('fullName')}
+                id="name"
+                value={form.name}
+                onChange={setField('name')}
                 placeholder="Ada Lovelace"
                 required
               />
-
             </div>
 
-
-            {/* =========================================
-                TEAM
-            ========================================== */}
+            {/* Team */}
 
             <div className="space-y-2">
-
               <Label>
                 Are you with a team? *
               </Label>
@@ -338,7 +211,7 @@ export default function Apply() {
                   onClick={() =>
                     setForm((previous) => ({
                       ...previous,
-                      team: 'Yes'
+                      team: 'Yes',
                     }))
                   }
                   className={
@@ -355,7 +228,7 @@ export default function Apply() {
                   onClick={() =>
                     setForm((previous) => ({
                       ...previous,
-                      team: 'No'
+                      team: 'No',
                     }))
                   }
                   className={
@@ -368,18 +241,13 @@ export default function Apply() {
                 </Button>
 
               </div>
-
             </div>
 
-
-            {/* =========================================
-                GITHUB
-            ========================================== */}
+            {/* GitHub */}
 
             <div className="space-y-2">
-
               <Label htmlFor="github">
-                Please give us your GitHub
+                Please give us your GitHub *
               </Label>
 
               <Input
@@ -390,29 +258,27 @@ export default function Apply() {
                 required
               />
 
+              <p className="text-xs text-black/50">
+                Enter your GitHub username.
+              </p>
             </div>
 
-
-            {/* =========================================
-                HIGH SCHOOL
-            ========================================== */}
+            {/* High school */}
 
             <div className="space-y-2">
-
               <Label>
-                You or your team need to be in high-school
-                to participate. Are you in high school? *
+                You or your team need to be in high-school to
+                participate. Are you in high school? *
               </Label>
 
               <label className="flex items-center gap-3 cursor-pointer">
-
                 <input
                   type="checkbox"
                   checked={form.highSchool}
-                  onChange={(e) =>
+                  onChange={(event) =>
                     setForm((previous) => ({
                       ...previous,
-                      highSchool: e.target.checked
+                      highSchool: event.target.checked,
                     }))
                   }
                   className="w-5 h-5 accent-blue-600"
@@ -422,33 +288,26 @@ export default function Apply() {
                 <span>
                   YES
                 </span>
-
               </label>
-
             </div>
 
-
-            {/* =========================================
-                SUPPLIES
-            ========================================== */}
+            {/* Supplies */}
 
             <div className="space-y-2">
-
               <Label>
-                You and your team need to bring your own
-                supplies. Are you bringing your computer,
-                charger, and anything you might need? *
+                You and your team need to bring your own supplies.
+                Are you bringing your computer, charger, and anything
+                you might need? *
               </Label>
 
               <label className="flex items-center gap-3 cursor-pointer">
-
                 <input
                   type="checkbox"
                   checked={form.supplies}
-                  onChange={(e) =>
+                  onChange={(event) =>
                     setForm((previous) => ({
                       ...previous,
-                      supplies: e.target.checked
+                      supplies: event.target.checked,
                     }))
                   }
                   className="w-5 h-5 accent-blue-600"
@@ -458,18 +317,12 @@ export default function Apply() {
                 <span>
                   YES
                 </span>
-
               </label>
-
             </div>
 
-
-            {/* =========================================
-                HOW DID YOU HEAR ABOUT US?
-            ========================================== */}
+            {/* How did you hear about us */}
 
             <div className="space-y-2">
-
               <Label htmlFor="heardAbout">
                 How did you hear about us? (say in short)
               </Label>
@@ -481,20 +334,15 @@ export default function Apply() {
                 placeholder="Instagram, my school, a friend..."
                 required
               />
-
             </div>
 
-
-            {/* =========================================
-                SUBMIT
-            ========================================== */}
+            {/* Submit */}
 
             <Button
               type="submit"
               disabled={loading}
               className="w-full h-12 text-lg font-bungee bg-[#FF2E2E] hover:bg-[#FF2E2E]/90 text-white"
             >
-
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
@@ -506,16 +354,11 @@ export default function Apply() {
                   Submit Application
                 </>
               )}
-
             </Button>
 
           </form>
-
         </div>
-
       </div>
-
     </div>
   );
 }
-```
