@@ -318,18 +318,52 @@ export default function Home() {
       </section>
 
       {/* ===== FAQ ===== */}
-      <section id="faq" className="relative py-[clamp(1.75rem,3.5vw,3rem)] px-[10vw]">
+<section id="faq" className="relative py-[clamp(1.75rem,3.5vw,3rem)] px-[10vw]">
         
-        <h2 className="font-bubbly text-inflated-sm mt-3 mb-[clamp(1.5rem,3vw,3rem)] text-xs" style={{ fontSize: "clamp(1.4rem, 2.6vw, 2rem)" }}>FAQ</h2>
-        <div className="max-w-3xl space-y-[clamp(0.75rem,1.2vw,1.25rem)]">
-          {Array.from({ length: 6 }).map((_, i) =>
-          <div key={i} className="glass-card-light rounded-xl p-[clamp(0.85rem,1.5vw,1.5rem)]">
-              <p className="font-bungee text-[clamp(0.85rem,1.1vw,1.15rem)] text-black mb-[clamp(0.3rem,0.5vw,0.5rem)]">Frequently asked question {i + 1}?</p>
-              <p className="text-black/60 leading-relaxed text-[clamp(0.75rem,0.95vw,1rem)]">Placeholder answer goes here. Replace with real FAQ content.</p>
-            </div>
-          )}
-        </div>
-      </section>
+  <h2 className="font-bubbly text-inflated-sm mt-3 mb-[clamp(1.5rem,3vw,3rem)] text-xs" style={{ fontSize: "clamp(1.4rem, 2.6vw, 2rem)" }}>FAQ</h2>
+
+  <div className="max-w-3xl space-y-[clamp(0.75rem,1.2vw,1.25rem)]">
+    {[
+      {
+        question: "What is ONHacks?",
+        answer: "ONHacks is a hackathon where students come together to explore technology, collaborate with others, and turn their ideas into creative projects. It's an opportunity to learn, build, and have fun while solving real-world problems."
+      },
+      {
+        question: "Do I need coding experience?",
+        answer: "Not at all! ONHacks welcomes students with different skills and experience levels. Whether you're interested in coding, design, research, or presenting, there's a way for you to contribute."
+      },
+      {
+        question: "Who can participate?",
+        answer: "ONHacks is designed to provide high-school students with an opportunity to learn, collaborate, and build something exciting in a welcoming environment."
+      },
+      {
+        question: "Do I need to have a team?",
+        answer: "You don't necessarily need to have a team beforehand. Participants will have opportunities to connect with others and collaborate on their projects. If you are planning to participate individually that is also acceptable."
+      },
+      {
+        question: "What can I build at ONHacks?",
+        answer: "You can turn your ideas into a wide variety of projects, such as websites, applications, games, or other technology-based solutions."
+      },
+      {
+        question: "What should I bring to ONHacks?",
+        answer: "Bring your creativity, ideas, and willingness to learn! You should also bring anything you need to work on your project, such as a laptop and charger."
+      },
+      {
+        question: "Will there be prizes?",
+        answer: "Yes and more information about prizes, judging, and awards will be announced closer to the event."
+      },
+      {
+        question: "How do I register?",
+        answer: "Registration details will be announced closer to the event. Stay tuned for updates on how to sign up!"
+      }
+    ].map((faq, i) =>
+      <div key={i} className="glass-card-light rounded-xl p-[clamp(0.85rem,1.5vw,1.5rem)]">
+          <p className="font-bungee text-[clamp(0.85rem,1.1vw,1.15rem)] text-black mb-[clamp(0.3rem,0.5vw,0.5rem)]">{faq.question}</p>
+          <p className="text-black/60 leading-relaxed text-[clamp(0.75rem,0.95vw,1rem)]">{faq.answer}</p>
+      </div>
+    )}
+  </div>
+</section>
 
       {/* ===== ORGANIZERS — MINECART INFINITE SCROLL ===== */}
       <section id="organizers" className="relative py-[clamp(1.75rem,3.5vw,3rem)]">
