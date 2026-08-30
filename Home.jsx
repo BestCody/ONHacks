@@ -5,8 +5,8 @@ import { X, ArrowRight, Trophy, Code2, Brain, Globe, Shield } from 'lucide-react
 import MinecartOrganizers from '@/components/MinecartOrganizers';
 import LoadingScreen from '@/components/LoadingScreen';
 
-const VIDEO_URL = "https://media.db.com/videos/public/6a8ffb9d68dbb363d52553fb/ce38382a9_Upscaler-4K-Ultimate-Enhancer-AIUHD-Untitleddesign-ezremove.mp4";
-const SEA_BG = "https://media.db.com/images/public/6a8ffb9d68dbb363d52553fb/b67303612_StockCake-Deep_Blue_Pixels-2130883-standard1.jpg";
+const VIDEO_URL = "/assets/hero.mp4";
+const SEA_BG = "/assets/sea-bg.jpg";
 
 const TRACKS = [
 { icon: Brain, title: "AI / ML", blurb: "Build neural nets, LLM agents, and systems that think.", prize: "$5K" },

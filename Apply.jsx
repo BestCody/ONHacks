@@ -10,7 +10,7 @@ import { ArrowLeft, Loader2, Send } from 'lucide-react';
 
 const TRACKS = ["AI / ML", "Web3 / Blockchain", "Developer Tools", "Security & Privacy"];
 
-const BG = "https://media.db.com/images/public/6a8ffb9d68dbb363d52553fb/2b5736823_big-ole-ocean-dat-took-an-1786344115.webp";
+const BG = "/assets/apply-bg.webp";
 
 export default function Apply() {
   const navigate = useNavigate();

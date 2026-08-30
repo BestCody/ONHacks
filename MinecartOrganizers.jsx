@@ -18,7 +18,7 @@ function Bubble({ o }) {
       className="shrink-0 w-20 h-20 mx-3 rounded-full overflow-hidden border-2 border-[#7b7b7b] shadow-[0_4px_12px_rgba(0,0,0,0.7)] bg-[#1a1a1a]"
       title={`${o.name} — ${o.role}`}>
       <img
-        src={`https://placehold.co/200/${o.tint}/e8e8e8/png?text=${encodeURIComponent(o.initial)}`}
+        src={`/assets/organizers/${o.initial}.png`}
         alt={o.name}
         loading="lazy"
         className="w-full h-full object-cover opacity-95" />
