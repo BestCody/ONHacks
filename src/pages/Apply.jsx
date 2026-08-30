@@ -17,6 +17,7 @@ const ENTRY = {
   highSchool: 'entry.1740451237',
   supplies: 'entry.1883098233',
   heardAbout: 'entry.1851102738',
+  email: 'entry.1236791057',
 };
 
 const BG = '/assets/apply-bg.webp';
@@ -31,6 +32,7 @@ export default function Apply() {
     highSchool: false,
     supplies: false,
     heardAbout: '',
+    email: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -81,6 +83,10 @@ export default function Apply() {
       setError('Please tell us how you heard about us.');
       return;
     }
+    if (!form.email.trim()) {
+      setError('Please enter your personal email.');
+      return;
+    }
 
     setLoading(true);
 
@@ -93,6 +99,7 @@ export default function Apply() {
       formData.append(ENTRY.highSchool, 'YES');
       formData.append(ENTRY.supplies, 'YES');
       formData.append(ENTRY.heardAbout, form.heardAbout.trim());
+      formData.append(ENTRY.email, form.email.trim());
 
       await fetch(GOOGLE_FORM_URL, {
         method: 'POST',
@@ -334,6 +341,20 @@ export default function Apply() {
                 placeholder="Instagram, my school, a friend..."
                 required
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">
+                What is your email? (personal) *
+              </Label>
+
+              <Input
+                id="email"
+                type="email"
+                value={form.email}
+                onChange={setField('email')}
+                placeholder="ada@example.com"
+                required
+                />
             </div>
 
             {/* Submit */}
