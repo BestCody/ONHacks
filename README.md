@@ -2,6 +2,16 @@
 
 Standalone React/Vite registration site with an Express API and PostgreSQL storage.
 
+## Project layout
+
+- `src/pages/`: route-level pages (`Home` and `Apply`)
+- `src/components/`: app-specific components
+- `src/components/ui/`: reusable shadcn/Radix UI primitives
+- `src/hooks/`: shared React hooks
+- `src/lib/`: shared utilities
+- `server/index.js`: Express API, database initialization, and static hosting
+- `public/`: self-hosted images, video, and fonts
+
 ## Local development
 
 1. Install Node.js 20 or newer.

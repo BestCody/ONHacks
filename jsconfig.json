@@ -2,12 +2,12 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/components/ui/*": ["*"],
-      "@/components/*": ["*"],
-      "@/pages/*": ["*"],
-      "@/lib/*": ["*"],
-      "@/hooks/*": ["*"],
-      "@/*": ["./*"]
+      "@/components/ui/*": ["src/components/ui/*"],
+      "@/components/*": ["src/components/*"],
+      "@/pages/*": ["src/pages/*"],
+      "@/lib/*": ["src/lib/*"],
+      "@/hooks/*": ["src/hooks/*"],
+      "@/*": ["src/*"]
     },
     "jsx": "react-jsx",
     "module": "esnext",
@@ -23,6 +23,6 @@
     "resolveJsonModule": true,
     "types": []
   },
-  "include": ["*.js", "*.jsx"],
-  "exclude": ["node_modules", "dist", "server.js"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "server"]
 }

@@ -1,6 +1,6 @@
 import { Toaster } from "@/components/ui/toaster"
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
-import ScrollToTop from './ScrollToTop';
+import ScrollToTop from '@/components/ScrollToTop';
 import Home from '@/pages/Home';
 import Apply from '@/pages/Apply';
 

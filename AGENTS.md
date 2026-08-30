@@ -8,9 +8,11 @@ visual design and API conventions.
 
 ## Key Files
 
-- `Home.jsx` and `Apply.jsx`: primary public pages.
-- `server.js`: Express server, API routes, database initialization, and static
-  frontend hosting.
+- `src/pages/Home.jsx` and `src/pages/Apply.jsx`: primary public pages.
+- `src/components/`: app-specific components.
+- `src/components/ui/`: reusable UI primitives.
+- `server/index.js`: Express server, API routes, database initialization, and
+  static frontend hosting.
 - `vite.config.js`: Vite build and local `/api` proxy configuration.
 - `render.yaml`: Render Web Service settings.
 - `.env.example`: local environment variable template. Never commit `.env` or

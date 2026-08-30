@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 const { Pool } = pg;
 const app = express();
 const port = Number(process.env.PORT || 10000);
-const projectRoot = path.dirname(fileURLToPath(import.meta.url));
+const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(serverDirectory, '..');
 const distDirectory = path.join(projectRoot, 'dist');
 const databaseUrl = process.env.DATABASE_URL;
 
