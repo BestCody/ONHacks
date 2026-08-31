@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowRight, Trophy, Code2, Brain, Globe, Shield, Menu } from 'lucide-react';
+import { X, ArrowRight, Trophy, Code2, Brain, Globe, Shield } from 'lucide-react';
 import MinecartOrganizers from '@/components/MinecartOrganizers';
 import LoadingScreen from '@/components/LoadingScreen';
-import { useAuth } from '@/context/AuthContext';
 
 const VIDEO_URL = "/assets/hero.mp4";
 const SEA_BG = "/assets/sea-bg.jpg";
@@ -24,69 +23,6 @@ const SCHEDULE = [
 { time: "Sun 16:00", label: "Submissions Due", live: false },
 { time: "Sun 18:00", label: "Judging & Demos", live: false },
 { time: "Sun 20:00", label: "Awards & Closing", live: false }];
-
-function MorphMenu() {
-  const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const items = ["Home", "Tracks", "Schedule"];
-
-  return (
-    <div className="fixed top-6 right-6 z-50">
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => navigate(user ? '/dashboard' : '/signin')}
-          className="glass-sheet border border-white/20 rounded-full px-4 py-2 font-tech text-[0.65rem] uppercase tracking-widest text-[#F4F4F9] hover:border-[#FF2E2E] hover:text-[#FF2E2E] transition-colors"
-        >
-          {user ? 'Account' : 'Sign in'}
-        </button>
-        <button
-          type="button"
-          aria-label={open ? 'Close menu' : 'Open menu'}
-          aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
-          className="w-11 h-11 flex items-center justify-center rounded-full glass-sheet border border-white/20 text-[#F4F4F9] hover:text-[#FF2E2E] transition-colors"
-        >
-          {open ? <X size={20} /> : <Menu size={20} />}
-        </button>
-      </div>
-
-      <AnimatePresence>
-        {open &&
-        <motion.nav
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 260, damping: 22 }}
-          className="absolute top-16 right-0 w-64 rounded-full glass-sheet border border-white/20 px-8 py-6 flex flex-col gap-4 origin-top-right">
-          
-            {items.map((it, i) => (
-              <a
-                key={it}
-                href={it === 'Home' ? '#top' : `#${it.toLowerCase()}`}
-                onClick={() => setOpen(false)}
-                className="font-tech text-sm uppercase tracking-widest text-[#F4F4F9] hover:text-[#FF2E2E] transition-colors"
-              >
-                {`0${i + 1}`} {it}
-              </a>
-            ))}
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                navigate('/apply');
-              }}
-              className="text-left font-tech text-sm uppercase tracking-widest text-[#F4F4F9] hover:text-[#FF2E2E] transition-colors"
-            >
-              04 Register
-            </button>
-          </motion.nav>
-        }
-      </AnimatePresence>
-    </div>);
-
-}
 
 function RegisterOverlay({ open, onClose }) {
   const [step, setStep] = useState(0);
@@ -198,8 +134,6 @@ export default function Home() {
       style={{ backgroundImage: `url(${SEA_BG})`, backgroundRepeat: 'no-repeat', backgroundSize: 'cover', backgroundAttachment: 'fixed', backgroundPosition: 'center', backgroundColor: '#051a2d' }}>
       
       <LoadingScreen ready={videoReady} />
-      <MorphMenu />
-
       {/* ===== HERO ===== */}
       <section id="top" ref={heroRef} className="relative h-screen w-full overflow-hidden">
         <video
@@ -242,7 +176,7 @@ export default function Home() {
 
         {/* Register CTA bottom-right */}
         <motion.button
-          onClick={() => navigate('/apply')}
+          onClick={() => navigate('/signin?returnTo=%2Fdashboard')}
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.7, type: "spring" }}
