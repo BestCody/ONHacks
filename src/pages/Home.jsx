@@ -298,7 +298,7 @@ export default function Home() {
 
         <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-black/50 hidden" />
 
-        <div className="absolute top-0 left-0 p-[10vw]">
+        <div className="hero-copy absolute left-0">
           <motion.h1
             initial={{ opacity: 0, y: -30, rotate: -3 }}
             animate={{ opacity: 1, y: 0, rotate: -3 }}

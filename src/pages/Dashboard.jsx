@@ -10,6 +10,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [applicationLoading, setApplicationLoading] = useState(true);
   const [application, setApplication] = useState(null);
 
   useEffect(() => {
@@ -22,6 +23,9 @@ export default function Dashboard() {
       })
       .catch(() => {
         if (active) setApplication(null);
+      })
+      .finally(() => {
+        if (active) setApplicationLoading(false);
       });
 
     return () => {
@@ -71,33 +75,34 @@ export default function Dashboard() {
               </h1>
               <p className="text-black/60">{user?.email}</p>
             </div>
-            <span className="font-tech text-xs uppercase tracking-widest text-emerald-700 bg-emerald-50 rounded-full px-3 py-2">
-              Account active
-            </span>
           </div>
 
           <div className="rounded-xl border border-black/10 bg-[#f8fafc] p-5 mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
               <h2 className="font-bungee text-lg text-[#0A1A2A]">Application</h2>
               <span className={`font-tech text-xs uppercase tracking-widest rounded-full px-3 py-1.5 w-fit ${application ? 'text-emerald-700 bg-emerald-50' : 'text-black/50 bg-black/5'}`}>
-                {application ? 'Received' : 'Not submitted'}
+                {applicationLoading ? 'Checking' : application ? 'Received' : 'Not submitted'}
               </span>
             </div>
             <p className="text-black/60 leading-relaxed">
-              {application
+              {applicationLoading
+                ? 'Checking your application status...'
+                : application
                 ? `Thanks, ${application.full_name}. Your application was received and is being reviewed.`
                 : 'Complete the hackathon application when you are ready to join the event.'}
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button
-              onClick={() => navigate('/apply')}
-              className="flex-1 h-12 font-bungee bg-[#FF2E2E] hover:bg-[#FF2E2E]/90 text-white"
-            >
-              <Send className="w-5 h-5 mr-2" />
-              Apply to ONHacks
-            </Button>
+            {!applicationLoading && !application && (
+              <Button
+                onClick={() => navigate('/apply')}
+                className="flex-1 h-12 font-bungee bg-[#FF2E2E] hover:bg-[#FF2E2E]/90 text-white"
+              >
+                <Send className="w-5 h-5 mr-2" />
+                Apply to ONHacks
+              </Button>
+            )}
             <Button
               onClick={handleSignOut}
               disabled={loading}
