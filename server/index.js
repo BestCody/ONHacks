@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
-import { rateLimit } from 'express-rate-limit';
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
 import pg from 'pg';
 import {
@@ -56,7 +56,7 @@ const normalizeEmailKey = (request) => {
   const email = typeof request.body?.email === 'string'
     ? request.body.email.trim().toLowerCase()
     : '';
-  return email || `ip:${request.ip}`;
+  return email || `ip:${ipKeyGenerator(request.ip)}`;
 };
 
 const apiRateLimit = rateLimit({
