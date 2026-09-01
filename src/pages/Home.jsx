@@ -10,13 +10,13 @@ const MASCOT_ART = "/assets/download.png";
 const WHALE_SPRITE = "/assets/whale_sprite_sheet.png";
 
 const STREAM_PATH = [
-  { x: 7, y: 9, angle: 27 },
-  { x: 23, y: 12, angle: 31 },
-  { x: 39, y: 23, angle: 38 },
-  { x: 53, y: 40, angle: 43 },
-  { x: 66, y: 61, angle: 42 },
-  { x: 79, y: 82, angle: 39 },
-  { x: 93, y: 93, angle: 35 },
+  { x: 0, y: 9, angle: 27 },
+  { x: 18, y: 12, angle: 31 },
+  { x: 36, y: 23, angle: 38 },
+  { x: 52, y: 40, angle: 43 },
+  { x: 68, y: 61, angle: 42 },
+  { x: 84, y: 82, angle: 39 },
+  { x: 100, y: 93, angle: 35 },
 ];
 
 const WHALE_SPRITE_FRAMES = [-24, -62, -104, -150, -190, -243, -292];

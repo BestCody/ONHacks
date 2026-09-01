@@ -3,24 +3,31 @@ import SubmarineBubbleField from './SubmarineBubbleField';
 
 const ORGANIZERS = [
   { name: 'Ben Hadfield', image: '/assets/organizers/Ben Hadfield.png' },
-  { name: 'Caseyna Ponniah', image: '/assets/organizers/Caseyna Ponniah.png' },
-  { name: 'Charlie Shao', image: '/assets/organizers/Charlie Shao.png' },
+  {
+    name: 'Caseyna Ponniah',
+    image: '/assets/organizers/Caseyna Ponniah.png',
+    linkedin: 'https://www.linkedin.com/in/caseyna-ponniah-2498433b6?utm_source=share_via&utm_content=profile&utm_medium=member_ios',
+  },
+  {
+    name: 'Charlie Shao',
+    image: '/assets/organizers/Charlie Shao.png',
+    linkedin: 'https://www.linkedin.com/in/charlie-shao-499b38382/',
+  },
   { name: 'Hanze Lou', image: '/assets/organizers/Hanze Lou.png' },
   { name: 'Joel Daniel', image: '/assets/organizers/Joel Daniel.png' },
   { name: 'Maha Latify', image: '/assets/organizers/Maha Latify.png' },
-  { name: 'Michelle Wu', image: '/assets/organizers/Michelle Wu.png' },
+  {
+    name: 'Michelle Wu',
+    image: '/assets/organizers/Michelle Wu.png',
+    linkedin: 'https://www.linkedin.com/in/minghan-michelle-wu-b36199318',
+  },
   { name: 'Nicholas Ossine', image: '/assets/organizers/Nicholas Ossine.png' },
   { name: 'Wenxuan Su', image: '/assets/organizers/Wenxuan Su.png' },
 ];
 
 function SubmarineCard({ organizer, itemRef }) {
-  return (
-    <div
-      ref={itemRef}
-      className="submarine-organizer-card"
-      tabIndex={0}
-      title={organizer.name}
-      aria-label={`${organizer.name}, organizer`}>
+  const cardContent = (
+    <>
       <span className="submarine-organizer-name" aria-hidden="true">
         {organizer.name}
       </span>
@@ -40,6 +47,32 @@ function SubmarineCard({ organizer, itemRef }) {
           className="submarine-organizer-portrait"
         />
       </span>
+    </>
+  );
+
+  if (organizer.linkedin) {
+    return (
+      <a
+        ref={itemRef}
+        className="submarine-organizer-card submarine-organizer-card--linked"
+        href={organizer.linkedin}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={`Open ${organizer.name}'s LinkedIn profile`}
+        aria-label={`${organizer.name}, organizer. Open LinkedIn profile in a new tab`}>
+        {cardContent}
+      </a>
+    );
+  }
+
+  return (
+    <div
+      ref={itemRef}
+      className="submarine-organizer-card"
+      tabIndex={0}
+      title={organizer.name}
+      aria-label={`${organizer.name}, organizer`}>
+      {cardContent}
     </div>
   );
 }

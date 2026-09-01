@@ -1115,9 +1115,10 @@
 
   .about-river-stage {
     position: relative;
-    width: min(100%, 80rem);
+    width: 100vw;
     min-height: clamp(42rem, 112vh, 68rem);
-    margin: 0 auto;
+    max-width: none;
+    margin-left: calc(50% - 50vw);
   }
 
   .about-river-stream {
@@ -1416,6 +1417,12 @@
     cursor: help;
     outline: none;
     will-change: transform;
+  }
+
+  .submarine-organizer-card--linked {
+    color: inherit;
+    cursor: pointer;
+    text-decoration: none;
   }
 
   .submarine-organizer-art {
