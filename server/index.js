@@ -52,28 +52,71 @@ const rateLimitResponse = (message) => (_request, response) => {
   response.status(429).json({ error: message });
 };
 
+const normalizeEmailKey = (request) => {
+  const email = typeof request.body?.email === 'string'
+    ? request.body.email.trim().toLowerCase()
+    : '';
+  return email || `ip:${request.ip}`;
+};
+
 const apiRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 120,
+  limit: 2000,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   handler: rateLimitResponse('Too many requests. Please try again shortly.'),
 });
 
-const authRateLimit = rateLimit({
+const signInIpRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: 300,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  handler: rateLimitResponse('Too many sign-in attempts. Please try again in a few minutes.'),
+  handler: rateLimitResponse('Too many sign-in attempts from this network. Please try again shortly.'),
 });
 
-const applicationRateLimit = rateLimit({
+const signInEmailRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 5,
+  limit: 10,
+  keyGenerator: normalizeEmailKey,
+  skipSuccessfulRequests: true,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  handler: rateLimitResponse('Too many application submissions. Please try again shortly.'),
+  handler: rateLimitResponse('Too many failed sign-in attempts for this account. Please try again in a few minutes.'),
+});
+
+const signUpIpRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: rateLimitResponse('Too many account creation attempts from this network. Please try again shortly.'),
+});
+
+const signUpEmailRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  keyGenerator: normalizeEmailKey,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: rateLimitResponse('Too many account creation attempts for this email. Please try again later.'),
+});
+
+const applicationIpRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: rateLimitResponse('Too many application submissions from this network. Please try again shortly.'),
+});
+
+const applicationEmailRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 3,
+  keyGenerator: normalizeEmailKey,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: rateLimitResponse('Too many application submissions for this email. Please try again later.'),
 });
 
 const stateChangingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -455,7 +498,7 @@ app.get('/api/auth/me', async (request, response, next) => {
   }
 });
 
-app.post('/api/auth/signup', authRateLimit, async (request, response, next) => {
+app.post('/api/auth/signup', signUpIpRateLimit, signUpEmailRateLimit, async (request, response, next) => {
   if (!pool) {
     return response.status(503).json({
       error: 'Account creation is temporarily unavailable. Please try again later.',
@@ -490,7 +533,7 @@ app.post('/api/auth/signup', authRateLimit, async (request, response, next) => {
   }
 });
 
-app.post('/api/auth/signin', authRateLimit, async (request, response, next) => {
+app.post('/api/auth/signin', signInIpRateLimit, signInEmailRateLimit, async (request, response, next) => {
   if (!pool) {
     return response.status(503).json({
       error: 'Sign in is temporarily unavailable. Please try again later.',
@@ -553,7 +596,7 @@ app.get('/api/event-applications/me', requireAuth, async (request, response, nex
   }
 });
 
-app.post('/api/event-applications', applicationRateLimit, async (request, response, next) => {
+app.post('/api/event-applications', applicationIpRateLimit, applicationEmailRateLimit, async (request, response, next) => {
   if (!pool) {
     return response.status(503).json({
       error: 'Applications are temporarily unavailable. Please try again later.',
@@ -590,7 +633,7 @@ app.post('/api/event-applications', applicationRateLimit, async (request, respon
   }
 });
 
-app.post('/api/applications', applicationRateLimit, async (request, response, next) => {
+app.post('/api/applications', applicationIpRateLimit, applicationEmailRateLimit, async (request, response, next) => {
   if (!pool) {
     return response.status(503).json({
       error: 'Registration is temporarily unavailable. Please try again later.',
