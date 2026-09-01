@@ -759,7 +759,11 @@
     height: 2.75rem;
     flex: 0 0 2.75rem;
     place-items: center;
+    padding: 0;
+    border: 0;
     border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
     transition: background-color 0.2s ease, transform 0.2s ease;
   }
 
@@ -781,6 +785,7 @@
   }
 
   .site-nav-links a,
+  .site-nav-links button,
   .site-nav-register,
   .site-nav-instagram {
     color: rgba(255, 255, 255, 0.92);
@@ -794,8 +799,19 @@
     transition: color 0.2s ease;
   }
 
+  .site-nav-links button {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: inherit;
+    transition: color 0.2s ease;
+  }
+
   .site-nav-links a:hover,
-  .site-nav-links a:focus-visible {
+  .site-nav-links a:focus-visible,
+  .site-nav-links button:hover,
+  .site-nav-links button:focus-visible {
     color: #ff806e;
   }
 
@@ -897,6 +913,10 @@
     }
 
     .site-nav-links a {
+      font-size: 0.65rem;
+    }
+
+    .site-nav-links button {
       font-size: 0.65rem;
     }
 

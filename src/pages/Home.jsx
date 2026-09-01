@@ -83,6 +83,24 @@ function getStreamPoint(progress) {
   };
 }
 
+function scrollToSection(sectionId) {
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+
+  if (window.location.hash) {
+    window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.search}`);
+  }
+
+  const navigation = document.querySelector('.site-nav');
+  const navigationOffset = (navigation?.getBoundingClientRect().height || 0) + 24;
+  const top = section.getBoundingClientRect().top + window.scrollY - navigationOffset;
+
+  window.scrollTo({
+    top: Math.max(0, top),
+    behavior: 'smooth',
+  });
+}
+
 export default function Home() {
   const navigate = useNavigate();
   const heroRef = useRef(null);
@@ -233,15 +251,19 @@ export default function Home() {
       <section id="top" ref={heroRef} className="relative h-screen w-full overflow-hidden">
         <header className="site-nav" aria-label="Site navigation">
           <nav className="site-nav-left" aria-label="Primary navigation">
-            <a href="#top" className="site-nav-mascot-link" aria-label="ONHacks home">
+            <button
+              type="button"
+              onClick={() => scrollToSection('top')}
+              className="site-nav-mascot-link"
+              aria-label="ONHacks home">
               <img src={MASCOT_ART} alt="" className="site-nav-mascot pixel-whale" />
-            </a>
+            </button>
             <div className="site-nav-links">
-              <a href="#tracks">About</a>
-              <a href="#partners">Partners</a>
-              <a href="#sponsors">Sponsors</a>
-              <a href="#schedule">Schedules</a>
-              <a href="#faq">FAQs</a>
+              <button type="button" onClick={() => scrollToSection('tracks')}>About</button>
+              <button type="button" onClick={() => scrollToSection('partners')}>Partners</button>
+              <button type="button" onClick={() => scrollToSection('sponsors')}>Sponsors</button>
+              <button type="button" onClick={() => scrollToSection('faq')}>FAQs</button>
+              <button type="button" onClick={() => scrollToSection('organizers')}>Organizers</button>
             </div>
           </nav>
           <div className="site-nav-actions">
