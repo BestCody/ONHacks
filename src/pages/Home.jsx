@@ -9,14 +9,17 @@ const VIDEO_URL = "/assets/hero.mp4";
 const MASCOT_ART = "/assets/download.png";
 const WHALE_SPRITE = "/assets/whale_sprite_sheet.png";
 
+// These points follow the centerline of the CSS stream, from the viewport's
+// left edge to its right edge. Keeping them in percentages makes the route
+// responsive while keeping the whale inside the water at every bend.
 const STREAM_PATH = [
-  { x: 0, y: 9, angle: 27 },
-  { x: 18, y: 12, angle: 31 },
-  { x: 36, y: 23, angle: 38 },
-  { x: 52, y: 40, angle: 43 },
-  { x: 68, y: 61, angle: 42 },
-  { x: 84, y: 82, angle: 39 },
-  { x: 100, y: 93, angle: 35 },
+  { x: 0, y: 10, angle: 27 },
+  { x: 18, y: 10, angle: 31 },
+  { x: 36, y: 21, angle: 38 },
+  { x: 52, y: 39, angle: 43 },
+  { x: 68, y: 64, angle: 42 },
+  { x: 84, y: 87, angle: 39 },
+  { x: 100, y: 94, angle: 35 },
 ];
 
 const WHALE_SPRITE_FRAMES = [-24, -62, -104, -150, -190, -243, -292];

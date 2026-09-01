@@ -1130,7 +1130,7 @@
 
   .about-river-stream::before {
     position: absolute;
-    inset: -2%;
+    inset: 0;
     content: '';
     background-color: #2a9fd0;
     background-image:
