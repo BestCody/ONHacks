@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: othacks
+    name: onhacks
     runtime: node
     region: ohio
     plan: free

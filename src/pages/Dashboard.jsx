@@ -62,7 +62,7 @@ export default function Dashboard() {
 
         <section className="bg-white rounded-2xl shadow-xl p-8 md:p-10">
           <p className="font-tech text-xs uppercase tracking-[0.25em] text-[#FF2E2E] mb-4">
-            OTHacks // Dashboard
+            ONHacks // Dashboard
           </p>
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
             <div>
@@ -96,7 +96,7 @@ export default function Dashboard() {
               className="flex-1 h-12 font-bungee bg-[#FF2E2E] hover:bg-[#FF2E2E]/90 text-white"
             >
               <Send className="w-5 h-5 mr-2" />
-              Apply to OTHacks
+              Apply to ONHacks
             </Button>
             <Button
               onClick={handleSignOut}

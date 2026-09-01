@@ -92,15 +92,15 @@ export default function AuthPage({ mode }) {
 
         <section className="bg-white rounded-2xl shadow-xl p-8 md:p-10">
           <p className="font-tech text-xs uppercase tracking-[0.25em] text-[#FF2E2E] mb-4">
-            OTHacks // Account
+            ONHacks // Account
           </p>
           <h1 className="font-bubbly text-4xl text-[#0A1A2A] mb-2">
             {isSignUp ? 'Create your account' : 'Welcome back'}
           </h1>
           <p className="text-black/60 mb-8">
             {isSignUp
-              ? 'Save your place in the OTHacks community.'
-              : 'Sign in to access your OTHacks dashboard.'}
+              ? 'Save your place in the ONHacks community.'
+              : 'Sign in to access your ONHacks dashboard.'}
           </p>
 
           {error && (

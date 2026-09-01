@@ -10,6 +10,912 @@
   src: url('/fonts/bungee.ttf') format('truetype');
 }
 
+/* Cohesive underwater art direction: one shared field, deliberate art-led stages. */
+@layer components {
+  .ocean-world {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: linear-gradient(180deg, #8be6f5 0%, #6bd2ed 52%, #49b5dd 100%);
+    color: #062d46;
+  }
+
+  .ocean-section {
+    position: relative;
+    z-index: 1;
+    isolation: isolate;
+    overflow: hidden;
+  }
+
+  .ocean-section-heading {
+    display: flex;
+    max-width: 86rem;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+    margin: 0 auto clamp(2.25rem, 4vw, 3.75rem);
+  }
+
+  .ocean-section-title {
+    color: #ff2e2e;
+    font-family: 'Luckiest Guy', cursive;
+    font-weight: 400;
+    line-height: 0.95;
+    letter-spacing: 0.02em;
+  }
+
+  .ocean-intro-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(24rem, 1.15fr);
+    align-items: center;
+    gap: clamp(2.5rem, 8vw, 9rem);
+    max-width: 86rem;
+    margin: 0 auto;
+  }
+
+  .ocean-intro-copy {
+    max-width: 45rem;
+    padding: clamp(1rem, 2vw, 2rem) 0 clamp(1rem, 2vw, 2rem) clamp(1rem, 2vw, 2rem);
+    border-left: 4px solid #ff2e2e;
+  }
+
+  .ocean-intro-art {
+    min-height: 0;
+  }
+
+  .ocean-scene-stage {
+    position: relative;
+    aspect-ratio: 1.45;
+    overflow: hidden;
+    border: 4px solid #063b58;
+    background: #0a81ad;
+  }
+
+  .ocean-scene-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 68%;
+    image-rendering: pixelated;
+  }
+
+  .ocean-scene-mascot {
+    position: absolute;
+    bottom: 0.4rem;
+    left: 5%;
+    z-index: 2;
+    width: clamp(9rem, 20vw, 18rem);
+  }
+
+  .ocean-scene-bubble {
+    width: clamp(1.35rem, 2.7vw, 2.25rem);
+  }
+
+  .ocean-scene-bubble--one {
+    position: absolute;
+    bottom: 48%;
+    left: 24%;
+  }
+
+  .ocean-scene-bubble--two {
+    position: absolute;
+    bottom: 61%;
+    left: 31%;
+    width: clamp(1rem, 2vw, 1.75rem);
+  }
+
+  .ocean-schedule-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(17rem, 0.6fr);
+    align-items: center;
+    gap: clamp(2.5rem, 8vw, 9rem);
+    max-width: 86rem;
+    margin: 0 auto;
+  }
+
+  .ocean-schedule-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(2rem, 7vw, 8rem);
+    border-top: 3px solid rgba(6, 45, 70, 0.65);
+    border-bottom: 3px solid rgba(6, 45, 70, 0.55);
+  }
+
+  .ocean-schedule-item {
+    min-width: 0;
+    border-color: rgba(6, 45, 70, 0.28);
+    color: #062d46;
+    transition: background 0.25s ease, transform 0.25s ease;
+  }
+
+  .ocean-schedule-item:hover {
+    background: rgba(255, 255, 255, 0.24);
+    transform: translateX(4px);
+  }
+
+  .ocean-schedule-item--live {
+    color: #ff2e2e;
+  }
+
+  .ocean-schedule-dot {
+    background: #075c80;
+  }
+
+  .ocean-schedule-dot--live {
+    background: #ff2e2e;
+  }
+
+  .ocean-schedule-time {
+    color: rgba(6, 45, 70, 0.65);
+  }
+
+  .ocean-schedule-item--live .ocean-schedule-time {
+    color: #ff2e2e;
+  }
+
+  .ocean-schedule-label {
+    color: #062d46;
+  }
+
+  .ocean-schedule-art,
+  .ocean-sponsors-art,
+  .ocean-faq-art {
+    position: relative;
+    min-height: clamp(17rem, 25vw, 24rem);
+  }
+
+  .ocean-schedule-art {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 4px solid #ff2e2e;
+  }
+
+  .ocean-schedule-reef {
+    position: relative;
+    z-index: 2;
+    width: clamp(13rem, 24vw, 22rem);
+  }
+
+  .ocean-schedule-fan {
+    position: absolute;
+    right: 3%;
+    bottom: 4%;
+    z-index: 1;
+    width: clamp(5rem, 9vw, 8rem);
+    transform: rotate(-12deg);
+  }
+
+  .ocean-sponsors-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(17rem, 0.8fr);
+    align-items: center;
+    gap: clamp(2.5rem, 8vw, 9rem);
+    max-width: 86rem;
+    margin: 0 auto;
+  }
+
+  .ocean-sponsor-wall {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-top: 3px solid rgba(6, 45, 70, 0.65);
+    border-left: 3px solid rgba(6, 45, 70, 0.55);
+  }
+
+  .ocean-sponsor-tile {
+    display: flex;
+    min-height: clamp(5rem, 8vw, 7rem);
+    align-items: center;
+    justify-content: center;
+    border-right: 3px solid rgba(6, 45, 70, 0.55);
+    border-bottom: 3px solid rgba(6, 45, 70, 0.55);
+    color: #062d46;
+    transition: filter 0.2s ease, transform 0.2s ease;
+  }
+
+  .ocean-sponsor-tile:nth-child(4n + 1) { background: #ff826d; }
+  .ocean-sponsor-tile:nth-child(4n + 2) { background: #ffdc6d; }
+  .ocean-sponsor-tile:nth-child(4n + 3) { background: #bba4ff; }
+  .ocean-sponsor-tile:nth-child(4n + 4) { background: #78e4b7; }
+
+  .ocean-sponsor-tile:hover {
+    filter: saturate(1.15) brightness(1.04);
+    transform: translateY(-3px);
+  }
+
+  .ocean-sponsors-art {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 4px solid #ff2e2e;
+  }
+
+  .ocean-sponsors-reef {
+    position: relative;
+    z-index: 2;
+    width: clamp(13rem, 24vw, 23rem);
+  }
+
+  .ocean-sponsors-fan {
+    position: absolute;
+    right: 2%;
+    bottom: 0;
+    z-index: 1;
+    width: clamp(5rem, 9vw, 8rem);
+    transform: scaleX(-1) rotate(-10deg);
+  }
+
+  .ocean-faq-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(17rem, 0.8fr);
+    align-items: center;
+    gap: clamp(2.5rem, 8vw, 9rem);
+    max-width: 86rem;
+    margin: 0 auto;
+  }
+
+  .ocean-faq-list {
+    max-width: none;
+    border-top: 3px solid rgba(6, 45, 70, 0.65);
+  }
+
+  .ocean-faq-row {
+    border-bottom: 3px solid rgba(6, 45, 70, 0.3);
+  }
+
+  .ocean-faq-row summary {
+    color: #062d46;
+  }
+
+  .ocean-faq-answer {
+    color: rgba(6, 45, 70, 0.78);
+  }
+
+  .ocean-faq-art {
+    border-left: 4px solid #ff2e2e;
+  }
+
+  .ocean-faq-mascot {
+    position: absolute;
+    top: 0;
+    left: 8%;
+    z-index: 3;
+    width: clamp(11rem, 20vw, 18rem);
+  }
+
+  .ocean-faq-reef {
+    position: absolute;
+    right: -2rem;
+    bottom: -4rem;
+    z-index: 2;
+    width: clamp(13rem, 24vw, 22rem);
+  }
+
+  .ocean-faq-fan {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    z-index: 1;
+    width: clamp(5rem, 9vw, 8rem);
+    transform: rotate(-12deg);
+  }
+
+  .ocean-organizer-stage {
+    max-width: 86rem;
+    margin: 0 auto;
+    border-top: 3px solid rgba(6, 45, 70, 0.65);
+    border-bottom: 3px solid rgba(6, 45, 70, 0.55);
+    background: rgba(6, 72, 105, 0.12);
+  }
+
+  .ocean-reef-art--organizers {
+    position: absolute;
+    right: -3rem;
+    bottom: -6rem;
+    width: clamp(16rem, 29vw, 28rem);
+    opacity: 0.9;
+  }
+
+  .pixel-art-asset,
+  .pixel-whale {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  .pixel-art-asset {
+    pointer-events: none;
+    user-select: none;
+  }
+
+  @media (max-width: 768px) {
+    .ocean-section-heading {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .ocean-intro-layout,
+    .ocean-schedule-layout,
+    .ocean-sponsors-layout,
+    .ocean-faq-layout {
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+
+    .ocean-intro-art {
+      width: 100%;
+    }
+
+    .ocean-scene-stage {
+      aspect-ratio: 1.25;
+    }
+
+    .ocean-schedule-list {
+      grid-template-columns: 1fr;
+    }
+
+    .ocean-schedule-art,
+    .ocean-sponsors-art,
+    .ocean-faq-art {
+      min-height: 15rem;
+      border-right: 0;
+      border-left: 4px solid #ff2e2e;
+    }
+
+    .ocean-sponsor-wall {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ocean-faq-art {
+      order: -1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .whale-drift {
+      animation: none !important;
+    }
+  }
+}
+
+/* The lower page is one shared ocean canvas. Content sits on a few large
+   editorial "signs" so the artwork frames the story instead of becoming a
+   collection of unrelated cards. */
+@layer components {
+  .ocean-world {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    color: #062d46;
+    background-color: #0f91b9;
+    background-image:
+      linear-gradient(180deg, rgba(137, 232, 246, 0.48) 0%, rgba(39, 164, 202, 0.2) 42%, rgba(4, 61, 89, 0.18) 100%),
+      url('/assets/ocean-scene.png');
+    background-position: center, center;
+    background-size: cover, cover;
+    background-attachment: scroll, fixed;
+  }
+
+  .ocean-world-backdrop {
+    display: none;
+  }
+
+  .ocean-world-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(129, 234, 246, 0.16) 0%, rgba(255, 242, 210, 0.08) 57%, rgba(3, 38, 58, 0.18) 100%);
+  }
+
+  .ocean-chapter {
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    scroll-margin-top: 6rem;
+    padding: clamp(5rem, 9vw, 9rem) clamp(1.25rem, 8vw, 9rem);
+  }
+
+  .ocean-chapter-inner {
+    width: min(100%, 78rem);
+    margin: 0 auto;
+  }
+
+  .ocean-section-heading {
+    display: block;
+    max-width: none;
+    margin: 0 0 clamp(2rem, 4vw, 3.5rem);
+  }
+
+  .ocean-section-title {
+    margin: 0;
+    color: #ff2e2e;
+    font-family: 'Luckiest Guy', cursive;
+    font-weight: 400;
+    line-height: 0.95;
+    letter-spacing: 0.02em;
+    text-shadow: none;
+  }
+
+  .ocean-about-composition {
+    position: relative;
+    min-height: clamp(29rem, 46vw, 39rem);
+  }
+
+  .ocean-about-window {
+    position: absolute;
+    top: 0;
+    right: 11%;
+    left: 0;
+    height: clamp(19rem, 33vw, 29rem);
+    overflow: hidden;
+    border: 4px solid #062d46;
+    border-radius: 0.75rem 5rem 0.75rem 5rem;
+    background: #087fa9;
+  }
+
+  .ocean-about-window-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center bottom;
+  }
+
+  .ocean-about-copy {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    width: min(48rem, 57%);
+    padding: clamp(1.5rem, 3vw, 3rem);
+    border: 4px solid #062d46;
+    border-radius: 0.75rem 4rem 0.75rem 0.75rem;
+    background: #fff5d8;
+    color: #062d46;
+  }
+
+  .ocean-about-whale {
+    position: absolute;
+    top: -6%;
+    right: 2%;
+    z-index: 3;
+    width: clamp(8.5rem, 18vw, 17rem);
+    transform: rotate(7deg);
+  }
+
+  .ocean-schedule-board,
+  .ocean-faq-board {
+    border: 4px solid #062d46;
+    background: #fff5d8;
+  }
+
+  .ocean-schedule-board {
+    padding: clamp(1.25rem, 3vw, 3rem);
+    border-radius: 4rem 0.75rem 4rem 0.75rem;
+  }
+
+  .ocean-schedule-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(1.5rem, 6vw, 6rem);
+    border-top: 3px solid rgba(6, 45, 70, 0.65);
+    border-bottom: 0;
+  }
+
+  .ocean-schedule-item {
+    min-width: 0;
+    border-color: rgba(6, 45, 70, 0.28);
+    color: #062d46;
+    transition: background 0.25s ease, transform 0.25s ease;
+  }
+
+  .ocean-schedule-item:hover {
+    background: rgba(255, 211, 104, 0.25);
+    transform: translateX(4px);
+  }
+
+  .ocean-schedule-item--live {
+    color: #ff2e2e;
+  }
+
+  .ocean-schedule-dot {
+    background: #075c80;
+  }
+
+  .ocean-schedule-dot--live {
+    background: #ff2e2e;
+  }
+
+  .ocean-schedule-time {
+    color: rgba(6, 45, 70, 0.65);
+  }
+
+  .ocean-schedule-item--live .ocean-schedule-time {
+    color: #ff2e2e;
+  }
+
+  .ocean-schedule-label {
+    color: #062d46;
+  }
+
+  .ocean-sponsor-composition {
+    padding: clamp(1.25rem, 3vw, 3rem);
+    border: 4px solid #062d46;
+    border-radius: 0.75rem 4rem 0.75rem 4rem;
+    background: #ff806e;
+  }
+
+  .ocean-sponsor-wall {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(0.75rem, 1.6vw, 1.5rem);
+    border: 0;
+  }
+
+  .ocean-sponsor-tile {
+    display: flex;
+    min-height: clamp(5rem, 9vw, 8rem);
+    align-items: center;
+    justify-content: center;
+    border: 4px solid #062d46;
+    border-radius: 0.75rem 2.25rem 0.75rem 2.25rem;
+    color: #062d46;
+    transition: filter 0.2s ease, transform 0.2s ease;
+  }
+
+  .ocean-sponsor-tile:nth-child(4n + 1) { background: #ffd66c; }
+  .ocean-sponsor-tile:nth-child(4n + 2) { background: #94e4c0; }
+  .ocean-sponsor-tile:nth-child(4n + 3) { background: #c6b4ff; }
+  .ocean-sponsor-tile:nth-child(4n + 4) { background: #ffb0b0; }
+
+  .ocean-sponsor-tile:hover {
+    filter: saturate(1.15) brightness(1.04);
+    transform: translateY(-3px);
+  }
+
+  .ocean-faq-board {
+    width: min(100%, 68rem);
+    margin-left: auto;
+    padding: clamp(1.25rem, 3vw, 3rem);
+    border-radius: 0.75rem 4rem 0.75rem 4rem;
+  }
+
+  .ocean-faq-list {
+    max-width: none;
+    border-top: 3px solid rgba(6, 45, 70, 0.65);
+  }
+
+  .ocean-faq-row {
+    border-bottom: 3px solid rgba(6, 45, 70, 0.28);
+  }
+
+  .ocean-faq-row:last-child {
+    border-bottom: 0;
+  }
+
+  .ocean-faq-row summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: clamp(1rem, 1.6vw, 1.5rem) 0;
+    color: #062d46;
+    font-family: 'Bungee', cursive;
+    font-size: clamp(0.85rem, 1.3vw, 1.1rem);
+    line-height: 1.35;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .ocean-faq-row summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .ocean-faq-plus {
+    flex: 0 0 auto;
+    color: #ff2e2e;
+    font-family: 'Bungee', cursive;
+    font-size: 1.5rem;
+    line-height: 1;
+  }
+
+  .ocean-faq-answer {
+    max-width: 52rem;
+    margin: 0;
+    padding: 0 3rem clamp(1rem, 1.6vw, 1.5rem) 0;
+    color: rgba(6, 45, 70, 0.78);
+    line-height: 1.65;
+  }
+
+  .ocean-organizers-heading {
+    position: relative;
+  }
+
+  .ocean-organizers-whale {
+    position: absolute;
+    right: 3%;
+    bottom: -1.75rem;
+    width: clamp(7rem, 12vw, 11rem);
+    transform: rotate(7deg);
+  }
+
+  .ocean-organizer-stage {
+    max-width: none;
+    border: 4px solid #062d46;
+    border-radius: 4rem 0.75rem 4rem 0.75rem;
+    background: rgba(255, 245, 216, 0.9);
+  }
+
+  .pixel-art-asset,
+  .pixel-whale {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  .pixel-art-asset {
+    pointer-events: none;
+    user-select: none;
+  }
+
+  @media (max-width: 768px) {
+    .ocean-chapter {
+      padding: 4.5rem 1rem;
+    }
+
+    .ocean-about-composition {
+      min-height: 0;
+    }
+
+    .ocean-about-window {
+      position: relative;
+      right: auto;
+      height: clamp(14rem, 70vw, 22rem);
+      border-radius: 0.75rem 3rem 0.75rem 3rem;
+    }
+
+    .ocean-about-copy {
+      position: relative;
+      right: auto;
+      bottom: auto;
+      width: 92%;
+      margin: -2.5rem 0 0 auto;
+      padding: 1.25rem;
+      border-radius: 0.75rem 2.5rem 0.75rem 0.75rem;
+    }
+
+    .ocean-about-whale {
+      top: -2.25rem;
+      right: -0.25rem;
+      width: 7.5rem;
+    }
+
+    .ocean-schedule-list {
+      grid-template-columns: 1fr;
+    }
+
+    .ocean-sponsor-wall {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ocean-faq-board {
+      padding: 1.25rem;
+      border-radius: 0.75rem 2.5rem 0.75rem 2.5rem;
+    }
+
+    .ocean-faq-answer {
+      padding-right: 0;
+    }
+
+    .ocean-organizers-whale {
+      right: -0.25rem;
+      bottom: -1.25rem;
+      width: 6.5rem;
+    }
+
+    .ocean-organizer-stage {
+      border-radius: 2.5rem 0.75rem 2.5rem 0.75rem;
+    }
+  }
+}
+
+@layer components {
+  .site-nav {
+    position: fixed;
+    top: clamp(0.75rem, 2vw, 1.5rem);
+    right: clamp(1rem, 3vw, 3rem);
+    left: clamp(1rem, 3vw, 3rem);
+    z-index: 30;
+    isolation: isolate;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(0.75rem, 2vw, 2rem);
+    min-height: 3.5rem;
+    padding: 0.4rem 0.45rem 0.4rem 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 999px;
+    overflow: hidden;
+    background: linear-gradient(180deg, #4a626b 0%, #354e58 100%);
+    contain: paint;
+  }
+
+  .site-nav-left,
+  .site-nav-links,
+  .site-nav-actions {
+    display: flex;
+    align-items: center;
+  }
+
+  .site-nav-left {
+    min-width: 0;
+    gap: clamp(0.6rem, 1.5vw, 1.25rem);
+  }
+
+  .site-nav-mascot-link {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: 0 0 2.75rem;
+    place-items: center;
+    border-radius: 50%;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .site-nav-mascot-link:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+  }
+
+  .site-nav-mascot {
+    display: block;
+    width: 2.65rem;
+    height: 2.65rem;
+    object-fit: contain;
+  }
+
+  .site-nav-links {
+    min-width: 0;
+    gap: clamp(0.75rem, 1.8vw, 1.8rem);
+  }
+
+  .site-nav-links a,
+  .site-nav-register,
+  .site-nav-instagram {
+    color: rgba(255, 255, 255, 0.92);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(0.62rem, 0.8vw, 0.8rem);
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .site-nav-links a {
+    transition: color 0.2s ease;
+  }
+
+  .site-nav-links a:hover,
+  .site-nav-links a:focus-visible {
+    color: #ff806e;
+  }
+
+  .site-nav-actions {
+    flex: 0 0 auto;
+    gap: 0.5rem;
+  }
+
+  .site-nav-register {
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(255, 128, 110, 0.9);
+    border-radius: 999px;
+    background: #ff2e2e;
+    color: #ffffff;
+    font-family: 'Bungee', cursive;
+    font-size: clamp(0.62rem, 0.75vw, 0.78rem);
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+
+  .site-nav-register:hover,
+  .site-nav-register:focus-visible {
+    background: #ffffff;
+    color: #ff2e2e;
+    transform: translateY(-2px);
+  }
+
+  .site-nav-instagram {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+
+  .site-nav-instagram:hover,
+  .site-nav-instagram:focus-visible {
+    background: #ffffff;
+    color: #ff2e2e;
+    transform: translateY(-2px);
+  }
+
+  .site-nav a:focus-visible,
+  .site-nav button:focus-visible {
+    outline: 2px solid #ffd66c;
+    outline-offset: 3px;
+  }
+
+  .site-nav-anchor {
+    display: block;
+    height: 0;
+    scroll-margin-top: 6rem;
+  }
+
+  @media (max-width: 768px) {
+    .site-nav {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-areas:
+        "mascot . actions"
+        "links links links";
+      gap: 0.35rem 0.65rem;
+      min-height: 0;
+      padding: 0.35rem 0.4rem 0.45rem 0.55rem;
+      border-radius: 1.5rem;
+    }
+
+    .site-nav-left {
+      display: contents;
+    }
+
+    .site-nav-mascot-link {
+      grid-area: mascot;
+      width: 2.25rem;
+      height: 2.25rem;
+      flex-basis: 2.25rem;
+    }
+
+    .site-nav-mascot {
+      width: 2.2rem;
+      height: 2.2rem;
+    }
+
+    .site-nav-links {
+      grid-area: links;
+      width: 100%;
+      justify-content: flex-start;
+      gap: 1.1rem;
+      overflow-x: auto;
+      padding: 0.55rem 0.25rem 0.15rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.18);
+      scrollbar-width: none;
+    }
+
+    .site-nav-links::-webkit-scrollbar {
+      display: none;
+    }
+
+    .site-nav-links a {
+      font-size: 0.65rem;
+    }
+
+    .site-nav-actions {
+      grid-area: actions;
+    }
+
+    .site-nav-register {
+      padding: 0.6rem 0.8rem;
+      font-size: 0.62rem;
+    }
+
+    .site-nav-instagram {
+      width: 2.2rem;
+      height: 2.2rem;
+    }
+  }
+}
+
 @font-face {
   font-family: 'JetBrains Mono';
   font-style: normal;
@@ -132,7 +1038,7 @@
     font-family: 'JetBrains Mono', monospace;
   }
 
-  /* Inflated 3D balloon typography for OTHacks */
+  /* Inflated 3D balloon typography for ONHacks */
   .text-inflated {
     color: #FF2E2E;
     text-shadow:
@@ -194,5 +1100,674 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+}
+
+@layer components {
+  .about-river-section {
+    position: relative;
+    min-height: 140vh;
+    overflow: hidden;
+    padding: clamp(5rem, 8vh, 7rem) clamp(1.25rem, 7vw, 8rem) clamp(4rem, 8vh, 7rem);
+    background: #D6C99D;
+    color: #062d46;
+  }
+
+  .about-river-stage {
+    position: relative;
+    width: min(100%, 80rem);
+    min-height: clamp(42rem, 112vh, 68rem);
+    margin: 0 auto;
+  }
+
+  .about-river-stream {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .about-river-stream::before {
+    position: absolute;
+    inset: -2%;
+    content: '';
+    background-color: #2a9fd0;
+    background-image:
+      linear-gradient(142deg, rgba(26, 137, 190, 0.62), rgba(113, 221, 235, 0.22) 48%, rgba(7, 95, 155, 0.5)),
+      url('/assets/ocean-water-texture.jpg');
+    background-position: center, center;
+    background-repeat: no-repeat, repeat;
+    background-size: cover, 24rem 24rem;
+    clip-path: polygon(
+      0% 3%, 7% 3%, 15% 4%, 23% 6%, 31% 10%, 39% 16%,
+      46% 23%, 53% 32%, 59% 42%, 66% 53%, 73% 64%,
+      80% 75%, 89% 86%, 100% 87%, 100% 100%, 90% 100%,
+      81% 91%, 73% 80%, 66% 69%, 59% 58%, 52% 48%,
+      45% 39%, 38% 30%, 31% 23%, 23% 17%, 15% 14%,
+      7% 14%, 0% 17%
+    );
+  }
+
+  .about-river-whale {
+    position: absolute;
+    z-index: 2;
+    width: 7.5rem;
+    height: 2.625rem;
+    overflow: visible;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    will-change: left, top;
+  }
+
+  .about-river-whale-direction {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    transform-origin: center;
+    will-change: transform;
+  }
+
+  .about-river-whale-sheet {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+    width: 25rem;
+    max-width: none;
+    height: 25rem;
+  }
+
+  .about-river-beach {
+    position: absolute;
+    bottom: clamp(0.75rem, 2.5vw, 2.5rem);
+    left: clamp(0.75rem, 2.5vw, 2.5rem);
+    z-index: 2;
+    width: clamp(12rem, 24vw, 22rem);
+    height: auto;
+  }
+
+  .about-river-block {
+    position: absolute;
+    z-index: 3;
+  }
+
+  .about-river-block--onhacks {
+    top: 0;
+    right: 1%;
+    width: min(34rem, 41%);
+    text-align: right;
+  }
+
+  .about-river-block--mission {
+    top: 49%;
+    left: 1%;
+    width: min(31rem, 37%);
+    transform: translateY(-50%);
+    text-align: center;
+  }
+
+  .about-river-title {
+    margin: 0;
+    color: #FF2E2E;
+    font-size: clamp(2.5rem, 5.5vw, 5.25rem);
+    line-height: 0.95;
+  }
+
+  .about-river-block p {
+    margin: clamp(1.25rem, 2.4vw, 2rem) 0 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(0.82rem, 1.15vw, 1.05rem);
+    line-height: 1.7;
+  }
+
+  .beach-texture-section {
+    position: relative;
+    min-height: clamp(36rem, 85vh, 60rem);
+    z-index: 2;
+    overflow: visible;
+    scroll-margin-top: 6rem;
+    background-color: #f0d38f;
+    background-image: url('/assets/seamless-cartoon-sand-texture-vector-great-picture-background-illustrations-packaging_802913-58.avif');
+    background-repeat: repeat;
+    background-size: 24rem 24rem;
+  }
+
+  .beach-texture-section::before {
+    position: absolute;
+    top: calc(clamp(3rem, 6vw, 5.5rem) / -2);
+    right: 0;
+    left: 0;
+    z-index: 0;
+    height: clamp(3rem, 6vw, 5.5rem);
+    content: '';
+    background: #6c7a40;
+    clip-path: polygon(
+      0% 0%, 3% 14%, 6% 2%, 9% 18%, 12% 4%, 15% 23%,
+      18% 0%, 21% 14%, 24% 0%, 27% 20%, 30% 5%, 33% 26%,
+      36% 1%, 39% 16%, 42% 0%, 45% 22%, 48% 4%, 51% 24%,
+      54% 0%, 57% 15%, 60% 0%, 63% 19%, 66% 3%, 69% 23%,
+      72% 0%, 75% 14%, 78% 0%, 81% 20%, 84% 4%, 87% 23%,
+      90% 0%, 93% 15%, 96% 0%, 100% 12%, 100% 100%, 0% 100%
+    );
+    pointer-events: none;
+  }
+
+  .beach-texture-section-inner {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    justify-content: flex-start;
+    position: relative;
+    z-index: 1;
+    min-height: inherit;
+    width: 100%;
+    box-sizing: border-box;
+    padding: clamp(6rem, 14vh, 10rem) 2rem 2rem;
+  }
+
+  .sponsors-depth-transition {
+    display: flex;
+    box-sizing: border-box;
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-direction: column;
+    width: 100%;
+    height: auto;
+    overflow: hidden;
+    padding: var(--faq-top-gap, clamp(3rem, 4vw, 5rem)) clamp(1.25rem, 5vw, 4rem) 4rem;
+    background: linear-gradient(
+      180deg,
+      #f0d38f 0%,
+      #c9c89a 9%,
+      #a6c2ae 19%,
+      #81b4b8 35%,
+      #609fb4 57%,
+      #3e7fa2 71%,
+      #20577f 86%,
+      #061e3b 100%
+    );
+  }
+
+  .faq-transition-content {
+    width: min(100%, 100rem);
+    margin: 0 auto;
+  }
+
+  .faq-transition-title {
+    margin: 0;
+    color: #ff2e2e;
+    font-size: clamp(3rem, 8vw, 7rem);
+    line-height: 0.95;
+    text-align: center;
+  }
+
+  .faq-question-list {
+    display: flex;
+    flex-direction: column;
+    margin-top: clamp(2rem, 3vw, 3rem);
+    overflow: hidden;
+    border: 1px solid rgba(216, 231, 255, 0.2);
+    border-radius: 1.25rem;
+    background: transparent;
+  }
+
+  .faq-question {
+    color: #dce8fc;
+    font-family: Arial, sans-serif;
+    font-size: clamp(0.9rem, 1.25vw, 1.25rem);
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: left;
+  }
+
+  .faq-question summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: clamp(3.25rem, 5vw, 4.5rem);
+    padding: 0.85rem clamp(1rem, 3vw, 2rem);
+    color: inherit;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .faq-question summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-question summary:focus-visible {
+    outline: 2px solid #ff2e2e;
+    outline-offset: -2px;
+  }
+
+  .faq-question + .faq-question {
+    border-top: 1px solid rgba(216, 231, 255, 0.16);
+  }
+
+  .faq-question:hover {
+    background: rgba(216, 231, 255, 0.05);
+  }
+
+  .faq-question-chevron {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    color: rgba(216, 231, 255, 0.55);
+    transition: transform 180ms ease;
+  }
+
+  .faq-question[open] .faq-question-chevron {
+    transform: rotate(180deg);
+  }
+
+  .faq-answer {
+    margin: 0;
+    padding: 0 clamp(1rem, 3vw, 2rem) 1.25rem;
+    color: rgba(220, 232, 252, 0.78);
+    font-family: Arial, sans-serif;
+    font-size: clamp(0.8rem, 1vw, 1rem);
+    font-weight: 400;
+    line-height: 1.55;
+  }
+
+  .submarine-organizers-section {
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    padding: clamp(4rem, 8vw, 7rem) 0 clamp(3rem, 6vw, 5rem);
+    background: #061e3b;
+  }
+
+  .submarine-organizers-title {
+    position: relative;
+    z-index: 2;
+    display: block;
+    width: 100%;
+    margin: 0 0 clamp(2rem, 4vw, 3.5rem);
+    color: #ff2e2e;
+    font-size: clamp(3rem, 8vw, 7rem);
+    line-height: 0.95;
+    text-align: center;
+  }
+
+  .submarine-organizers-viewport {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    overflow: hidden;
+    padding: 3.75rem 0 1.25rem;
+  }
+
+  .submarine-organizers-track {
+    position: relative;
+    z-index: 2;
+    height: clamp(14rem, 24vw, 21rem);
+    width: 100%;
+  }
+
+  .submarine-organizer-card {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: clamp(14rem, 24vw, 22rem);
+    aspect-ratio: 1;
+    cursor: help;
+    outline: none;
+    will-change: transform;
+  }
+
+  .submarine-organizer-art {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .submarine-organizer-bubble-field {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .submarine-organizer-floating-bubble {
+    position: absolute;
+    display: block;
+    height: auto;
+    opacity: 0;
+    animation: submarine-bubble-float var(--bubble-duration) ease-out forwards;
+  }
+
+  @keyframes submarine-bubble-float {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, 0) scale(0.65);
+    }
+
+    14% {
+      opacity: 0.78;
+    }
+
+    76% {
+      opacity: 0.62;
+    }
+
+    100% {
+      opacity: 0;
+      transform: translate(calc(-50% + var(--bubble-drift)), -2.5rem) scale(1);
+    }
+  }
+
+  .submarine-organizer-portal {
+    position: absolute;
+    top: 49.3%;
+    left: 36.5%;
+    display: block;
+    width: 15.6%;
+    aspect-ratio: 1;
+    overflow: hidden;
+    z-index: 3;
+    border: 0.16rem solid #efa62e;
+    border-radius: 50%;
+    background: #74d9f3;
+  }
+
+  .submarine-organizer-portrait {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .submarine-organizer-name {
+    position: absolute;
+    top: 0.25rem;
+    left: 44.3%;
+    z-index: 4;
+    padding: 0.45rem 0.75rem;
+    border: 2px solid #062d46;
+    border-radius: 999px;
+    background: #fff5d8;
+    color: #062d46;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(0.6rem, 0.9vw, 0.8rem);
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -100%) translateY(0.5rem);
+    transition: opacity 160ms ease, transform 160ms ease;
+  }
+
+  .submarine-organizer-card:hover .submarine-organizer-name,
+  .submarine-organizer-card:focus-visible .submarine-organizer-name {
+    opacity: 1;
+    transform: translate(-50%, -100%);
+  }
+
+  .submarine-organizer-card:focus-visible {
+    outline: 2px solid #ffd66c;
+    outline-offset: 0.25rem;
+  }
+
+  .organizer-coral-corners {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .organizer-ocean-floor {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    z-index: 0;
+    display: block;
+    width: 100%;
+    height: clamp(7rem, 12vw, 10rem);
+    object-fit: cover;
+    object-position: center bottom;
+    image-rendering: auto;
+    pointer-events: none;
+  }
+
+  .organizer-coral {
+    position: absolute;
+    bottom: 0;
+    display: block;
+    width: clamp(4rem, 8vw, 8rem);
+    height: auto;
+    image-rendering: pixelated;
+  }
+
+  .organizer-coral--left {
+    bottom: clamp(-2.35rem, -2.34vw, -1.15rem);
+    left: 0;
+    width: clamp(6rem, 12vw, 12rem);
+    transform: translateX(-17.6%);
+  }
+
+  .organizer-coral--right {
+    right: clamp(-2rem, 1vw, 1rem);
+  }
+
+  .sponsors-deep-blue-section {
+    min-height: 0;
+    height: 0;
+    background: #061e3b;
+  }
+
+  .sponsors-heading-section {
+    padding: calc(clamp(2.5rem, 4vw, 3.5rem) + 3rem) 2rem 0;
+    scroll-margin-top: 6rem;
+    background-color: #f0d38f;
+    background-image: url('/assets/seamless-cartoon-sand-texture-vector-great-picture-background-illustrations-packaging_802913-58.avif');
+    background-repeat: repeat;
+    background-size: 24rem 24rem;
+    text-align: center;
+  }
+
+  .sponsors-heading {
+    margin: 0;
+    color: #ff2e2e;
+    font-size: clamp(3rem, 8vw, 7rem);
+    line-height: 0.95;
+  }
+
+  .sponsors-bubble-grid {
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .partners-bubble-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(1rem, 3vw, 2.5rem);
+    width: min(100%, 48rem);
+    margin-top: clamp(3rem, 5vw, 4rem);
+  }
+
+  .partner-bubble {
+    display: grid;
+    width: 100%;
+    height: 10rem;
+    place-items: center;
+    border: 3px solid rgba(6, 45, 70, 0.52);
+    border-radius: 1.5rem;
+    background: rgba(255, 255, 255, 0.16);
+    color: #062d46;
+    font-family: 'Bungee', cursive;
+    font-size: clamp(0.62rem, 1.25vw, 1rem);
+    letter-spacing: 0.08em;
+    line-height: 1.1;
+    text-align: center;
+    transform-origin: center bottom;
+    transition: transform 180ms ease;
+  }
+
+  .partner-bubble:hover {
+    animation: partner-bubble-wiggle 720ms ease-in-out infinite;
+  }
+
+  @keyframes partner-bubble-wiggle {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+
+    25% {
+      transform: rotate(-1.5deg);
+    }
+
+    50% {
+      transform: rotate(1.5deg);
+    }
+
+    75% {
+      transform: rotate(-0.75deg);
+    }
+  }
+
+  .beach-texture-title {
+    margin: 0;
+    color: #ff2e2e;
+    font-size: clamp(3rem, 8vw, 7rem);
+    line-height: 0.95;
+    text-align: center;
+  }
+
+  @media (max-width: 768px) {
+    .about-river-section {
+      min-height: 0;
+      padding: 5rem 1.25rem 4rem;
+    }
+
+    .about-river-stage {
+      min-height: 54rem;
+    }
+
+    .about-river-block--onhacks {
+      top: 0;
+      right: 0;
+      width: min(80%, 25rem);
+    }
+
+    .about-river-block--mission {
+      top: 52%;
+      left: 0;
+      width: min(78%, 23rem);
+    }
+
+    .about-river-title {
+      font-size: clamp(2.3rem, 11vw, 4rem);
+    }
+
+    .about-river-block p {
+      font-size: 0.78rem;
+      line-height: 1.6;
+    }
+
+    .about-river-whale {
+      width: 6.75rem;
+      height: 2.5rem;
+    }
+
+    .about-river-stream::before {
+      background-size: cover, 18rem 18rem;
+    }
+
+    .beach-texture-section {
+      min-height: 34rem;
+      background-size: 18rem 18rem;
+    }
+
+    .beach-texture-section-inner {
+      padding-top: 5rem;
+    }
+
+    .sponsors-heading-section {
+      padding-top: 6rem;
+      padding-bottom: 0;
+      background-size: 18rem 18rem;
+    }
+
+    .sponsors-depth-transition {
+      height: auto;
+      padding: var(--faq-top-gap, clamp(3rem, 4vw, 5rem)) 1.25rem 3rem;
+    }
+
+    .faq-question-list {
+      margin-top: 2rem;
+      border-radius: 0.9rem;
+    }
+
+    .faq-question {
+      font-size: 0.85rem;
+    }
+
+    .faq-question summary {
+      min-height: 3.25rem;
+      padding: 0.8rem 1rem;
+    }
+
+    .faq-answer {
+      padding: 0 1rem 0.8rem;
+      font-size: 0.8rem;
+    }
+
+    .submarine-organizers-section {
+      padding-top: 4rem;
+    }
+
+    .submarine-organizers-viewport {
+      padding-top: 3.25rem;
+    }
+
+    .submarine-organizer-name {
+      font-size: 0.58rem;
+    }
+
+    .faq-question-chevron {
+      width: 16px;
+      height: 16px;
+    }
+
+    .partners-bubble-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.25rem;
+      margin-top: 2.5rem;
+    }
+
+    .partner-bubble {
+      font-size: 0.65rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .partner-bubble:hover {
+      animation: none;
+    }
+
+    .submarine-organizer-floating-bubble {
+      animation: none;
+      opacity: 0.55;
+    }
+
+    .about-river-whale-sheet {
+      transform: translateY(-1.5rem);
+    }
+
+    .about-river-whale-direction {
+      transition: none;
+    }
   }
 }

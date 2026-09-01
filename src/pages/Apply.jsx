@@ -178,7 +178,7 @@ export default function Apply() {
         <div className="bg-white rounded-2xl shadow-xl p-8">
 
           <h1 className="font-bubbly text-4xl text-[#0A1A2A] mb-2">
-            Apply to OTHacks
+            Apply to ONHacks
           </h1>
 
           <p className="text-black/60 mb-8">

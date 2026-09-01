@@ -1,141 +1,264 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowRight, Trophy, Code2, Brain, Globe, Shield } from 'lucide-react';
-import MinecartOrganizers from '@/components/MinecartOrganizers';
+import { ChevronDown, Instagram } from 'lucide-react';
+import { motion } from 'framer-motion';
 import LoadingScreen from '@/components/LoadingScreen';
+import SubmarineOrganizers from '@/components/SubmarineOrganizers';
 
 const VIDEO_URL = "/assets/hero.mp4";
-const SEA_BG = "/assets/sea-bg.jpg";
+const MASCOT_ART = "/assets/download.png";
+const WHALE_SPRITE = "/assets/whale_sprite_sheet.png";
 
-const TRACKS = [
-{ icon: Brain, title: "AI / ML", blurb: "Build neural nets, LLM agents, and systems that think.", prize: "$5K" },
-{ icon: Globe, title: "Web3 / Blockchain", blurb: "Decentralized protocols, smart contracts, on-chain apps.", prize: "$4K" },
-{ icon: Code2, title: "Developer Tools", blurb: "Ship the next generation of dev infrastructure.", prize: "$3K" },
-{ icon: Shield, title: "Security & Privacy", blurb: "Harden systems. Break things. Defend the frontier.", prize: "$3K" }];
+const STREAM_PATH = [
+  { x: 7, y: 9, angle: 27 },
+  { x: 23, y: 12, angle: 31 },
+  { x: 39, y: 23, angle: 38 },
+  { x: 53, y: 40, angle: 43 },
+  { x: 66, y: 61, angle: 42 },
+  { x: 79, y: 82, angle: 39 },
+  { x: 93, y: 93, angle: 35 },
+];
 
-const SCHEDULE = [
-{ time: "Sat 09:00", label: "Doors Open & Check-in", live: false },
-{ time: "Sat 10:30", label: "Opening Ceremony", live: false },
-{ time: "Sat 12:00", label: "Hacking Begins", live: true },
-{ time: "Sat 18:00", label: "Mentor Office Hours", live: false },
-{ time: "Sun 09:00", label: "Mid-Hack Standup", live: false },
-{ time: "Sun 16:00", label: "Submissions Due", live: false },
-{ time: "Sun 18:00", label: "Judging & Demos", live: false },
-{ time: "Sun 20:00", label: "Awards & Closing", live: false }];
+const WHALE_SPRITE_FRAMES = [-24, -62, -104, -150, -190, -243, -292];
+const WHALE_TURN_FRAMES = [-24, -73, -116, -211, -271];
+const WHALE_TURN_X = -145;
 
-function RegisterOverlay({ open, onClose }) {
-  const [step, setStep] = useState(0);
-  const [form, setForm] = useState({ name: "", email: "", track: "" });
-  const fields = [
-  { key: "name", label: "What's your name?", type: "text", placeholder: "Ada Lovelace" },
-  { key: "email", label: "Where do we send updates?", type: "email", placeholder: "you@hack.dev" },
-  { key: "track", label: "Pick your battlefield", type: "select", options: TRACKS.map((t) => t.title) }];
+const FAQ_ITEMS = [
+  {
+    question: 'What is a hackathon?',
+    answer:
+      'A hackathon is a focused build event where people collaborate to turn an idea into a working prototype in a limited amount of time. At ONHacks, you will have 12 hours to learn, build, and share what you make.',
+  },
+  {
+    question: 'Who can participate?',
+    answer:
+      'ONHacks is for high-school students of all experience levels. You can join whether you already code or are simply curious about building something—your willingness to learn and collaborate matters most.',
+  },
+  {
+    question: 'Is it free? Will food be provided?',
+    answer:
+      'Student hackathons are often free and provide food or snacks through sponsors. ONHacks will confirm its registration fee, meal plan, and dietary options in the event details shared with participants.',
+  },
+  {
+    question: 'What should my project be about?',
+    answer:
+      'There is no single required theme. Start with a problem or idea your team cares about and build something meaningful, useful, or fun. Scope it to a working prototype that you can complete within the 12-hour build window.',
+  },
+  {
+    question: 'How many people are in a team?',
+    answer:
+      'Team limits vary by event, so the final ONHacks maximum will be listed in registration. Small teams of two to four are common because they make it easier to share skills, divide the work, and finish a prototype.',
+  },
+  {
+    question: 'How will we communicate during the event?',
+    answer:
+      'Organizers will share the event communication channel before the hackathon. Use it for announcements, help requests, mentor updates, and questions, while your team can use its own group chat for day-to-day coordination.',
+  },
+  {
+    question: 'Can I participate remotely?',
+    answer:
+      'Remote participation depends on the event format. Check the registration details for whether ONHacks offers a remote option and which tools remote teams should use if one is available.',
+  },
+  {
+    question: "What if I don't know how to code?",
+    answer:
+      'That is completely okay. Hackathons also need designers, researchers, writers, presenters, planners, and idea people. Ask mentors for help, learn as you go, and contribute in a role that fits your strengths.',
+  },
+];
 
-  if (!open) return null;
-  const current = fields[step];
+function getStreamPoint(progress) {
+  const scaledProgress = progress * (STREAM_PATH.length - 1);
+  const segment = Math.min(Math.floor(scaledProgress), STREAM_PATH.length - 2);
+  const segmentProgress = scaledProgress - segment;
+  const start = STREAM_PATH[segment];
+  const end = STREAM_PATH[segment + 1];
 
-  return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] bg-[#0A0A0A] flex flex-col items-center justify-center px-6">
-      
-      <button onClick={onClose} className="absolute top-6 right-6 text-[#F4F4F9]/70 hover:text-[#FF2E2E] transition-colors">
-        <X size={28} />
-      </button>
-
-      <div className="w-full max-w-2xl">
-        <div className="flex gap-2 mb-10">
-          {fields.map((f, i) =>
-          <div key={f.key} className={`h-1 flex-1 rounded-full transition-colors ${i <= step ? 'bg-[#FF2E2E]' : 'bg-white/10'}`} />
-          )}
-        </div>
-
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            className="text-center">
-            
-            <label className="block font-tech text-xs uppercase tracking-[0.3em] text-[#FF2E2E] mb-6">
-              Step {step + 1} / 3
-            </label>
-            <h2 className="text-3xl md:text-5xl font-bubbly text-[#F4F4F9] mb-10">{current.label}</h2>
-
-            {current.type === "select" ?
-            <div className="grid grid-cols-2 gap-4">
-                {current.options.map((opt) =>
-              <button
-                key={opt}
-                onClick={() => {setForm({ ...form, [current.key]: opt });setStep((s) => s + 1);}}
-                className="glass-card rounded-2xl px-6 py-5 font-bungee text-lg text-[#F4F4F9] hover:border-[#FF2E2E] hover:scale-105 transition-all">
-                
-                    {opt}
-                  </button>
-              )}
-              </div> :
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setStep((s) => s + 1);
-              }}
-              className="flex flex-col items-center gap-6">
-              
-                <input
-                autoFocus
-                type={current.type}
-                placeholder={current.placeholder}
-                value={form[current.key]}
-                onChange={(e) => setForm({ ...form, [current.key]: e.target.value })}
-                className="w-full max-w-md bg-transparent border-b-2 border-white/20 focus:border-[#FF2E2E] outline-none text-center text-2xl text-[#F4F4F9] placeholder:text-white/30 py-4 caret-[#FF2E2E]" />
-              
-                <button type="submit" className="font-tech text-sm uppercase tracking-widest text-[#FF2E2E] hover:text-white transition-colors flex items-center gap-2">
-                  Continue <ArrowRight size={16} />
-                </button>
-              </form>
-            }
-          </motion.div>
-        </AnimatePresence>
-
-        {step >= 3 &&
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
-            <h2 className="text-4xl md:text-6xl font-bubbly text-inflated-sm mb-4">You're in.</h2>
-            <p className="font-tech text-[#F4F4F9]/70">See you Nov 12. Bring a laptop and an idea.</p>
-          </motion.div>
-        }
-      </div>
-    </motion.div>);
-
+  return {
+    x: start.x + (end.x - start.x) * segmentProgress,
+    y: start.y + (end.y - start.y) * segmentProgress,
+    angle: start.angle + (end.angle - start.angle) * segmentProgress,
+  };
 }
 
 export default function Home() {
   const navigate = useNavigate();
-  const [registerOpen, setRegisterOpen] = useState(false);
   const heroRef = useRef(null);
+  const aboutSectionRef = useRef(null);
+  const lastScrollYRef = useRef(0);
+  const previousScrollDirectionRef = useRef('down');
   const [parallax, setParallax] = useState(0);
+  const [streamProgress, setStreamProgress] = useState(0);
+  const [scrollDirection, setScrollDirection] = useState('down');
+  const [whaleFrame, setWhaleFrame] = useState(0);
+  const [turning, setTurning] = useState(false);
+  const [turnFrame, setTurnFrame] = useState(0);
   const [videoReady, setVideoReady] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setParallax(window.scrollY);
+    const onScroll = () => {
+      const currentScrollY = window.scrollY;
+      const previousScrollY = lastScrollYRef.current;
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      setParallax(window.scrollY);
+      lastScrollYRef.current = currentScrollY;
+
+      if (!reducedMotion && currentScrollY !== previousScrollY) {
+        setScrollDirection(currentScrollY > previousScrollY ? 'down' : 'up');
+      }
+
+      const section = aboutSectionRef.current;
+      if (!section) return;
+
+      const rect = section.getBoundingClientRect();
+      const start = window.innerHeight * 0.78;
+      const end = -rect.height + window.innerHeight * 0.22;
+      const progress = (start - rect.top) / (start - end);
+
+      setStreamProgress(reducedMotion ? 0.48 : Math.max(0, Math.min(1, progress)));
+    };
+
+    lastScrollYRef.current = window.scrollY;
+    onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Safety net: never let the loader hang if the video stalls
   useEffect(() => {
-    const t = setTimeout(() => setVideoReady(true), 4000);
-    return () => clearTimeout(t);
+    const targetId = window.location.hash.slice(1);
+    if (!targetId) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ block: 'start', behavior: 'auto' });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    const syncFaqGap = () => {
+      if (!active) return;
+
+      const lastPartnerBubble = document.querySelector('#partners .partner-bubble:last-child');
+      const sponsorsHeading = document.getElementById('sponsors-heading');
+      const lastSponsorBubble = document.querySelector('#sponsors .partner-bubble:last-child');
+      const faqSection = document.getElementById('faq');
+
+      if (!lastPartnerBubble || !sponsorsHeading || !lastSponsorBubble || !faqSection) return;
+
+      const partnerToSponsorsGap =
+        sponsorsHeading.getBoundingClientRect().top - lastPartnerBubble.getBoundingClientRect().bottom;
+      const faqSectionOffset =
+        faqSection.getBoundingClientRect().top - lastSponsorBubble.getBoundingClientRect().bottom;
+      const faqTopGap = Math.max(0, partnerToSponsorsGap - faqSectionOffset);
+
+      faqSection.style.setProperty('--faq-top-gap', `${faqTopGap}px`);
+    };
+
+    syncFaqGap();
+    window.addEventListener('resize', syncFaqGap);
+    document.fonts?.ready.then(syncFaqGap);
+
+    return () => {
+      active = false;
+      window.removeEventListener('resize', syncFaqGap);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (previousScrollDirectionRef.current === scrollDirection) return undefined;
+
+    previousScrollDirectionRef.current = scrollDirection;
+    setTurning(true);
+    setTurnFrame(scrollDirection === 'up' ? 0 : WHALE_TURN_FRAMES.length - 1);
+
+    return undefined;
+  }, [scrollDirection]);
+
+  useEffect(() => {
+    if (!turning) return undefined;
+
+    const timeout = window.setTimeout(() => {
+      const step = scrollDirection === 'up' ? 1 : -1;
+      setTurnFrame((frame) => Math.max(0, Math.min(WHALE_TURN_FRAMES.length - 1, frame + step)));
+    }, 90);
+
+    return () => window.clearTimeout(timeout);
+  }, [turning, turnFrame, scrollDirection]);
+
+  useEffect(() => {
+    if (!turning) return;
+
+    const turnFinished = scrollDirection === 'up'
+      ? turnFrame === WHALE_TURN_FRAMES.length - 1
+      : turnFrame === 0;
+
+    if (turnFinished) setTurning(false);
+  }, [turning, turnFrame, scrollDirection]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setVideoReady(true), 4000);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+
+    const interval = window.setInterval(() => {
+      setWhaleFrame((frame) => (frame + 1) % WHALE_SPRITE_FRAMES.length);
+    }, 180);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const whalePoint = getStreamPoint(streamProgress);
+  const whaleRotation = whalePoint.angle + 180;
+  const whaleTurnFrame = turning ? WHALE_TURN_FRAMES[turnFrame] : null;
+  const whaleSpriteTransform = whaleTurnFrame === null
+    ? `translateY(${WHALE_SPRITE_FRAMES[whaleFrame]}px)`
+    : `translateX(${WHALE_TURN_X}px) translateY(${whaleTurnFrame}px)`;
+  const whaleDirectionTransform = `rotate(${whaleRotation}deg) scaleY(-1)${
+    scrollDirection === 'up' ? ' scaleX(-1)' : ''
+  }`;
+
   return (
-    <div
-      className="relative text-black overflow-x-hidden"
-      style={{ backgroundImage: `url(${SEA_BG})`, backgroundRepeat: 'no-repeat', backgroundSize: 'cover', backgroundAttachment: 'fixed', backgroundPosition: 'center', backgroundColor: '#051a2d' }}>
-      
+    <div className="relative overflow-x-hidden bg-[#06283d] text-black">
       <LoadingScreen ready={videoReady} />
-      {/* ===== HERO ===== */}
+
       <section id="top" ref={heroRef} className="relative h-screen w-full overflow-hidden">
+        <header className="site-nav" aria-label="Site navigation">
+          <nav className="site-nav-left" aria-label="Primary navigation">
+            <a href="#top" className="site-nav-mascot-link" aria-label="ONHacks home">
+              <img src={MASCOT_ART} alt="" className="site-nav-mascot pixel-whale" />
+            </a>
+            <div className="site-nav-links">
+              <a href="#tracks">About</a>
+              <a href="#partners">Partners</a>
+              <a href="#sponsors">Sponsors</a>
+              <a href="#schedule">Schedules</a>
+              <a href="#faq">FAQs</a>
+            </div>
+          </nav>
+          <div className="site-nav-actions">
+            <button
+              type="button"
+              onClick={() => navigate('/signin?returnTo=%2Fdashboard')}
+              className="site-nav-register">
+              Register
+            </button>
+            <a
+              href="https://www.instagram.com/onhacks_/"
+              target="_blank"
+              rel="noreferrer"
+              className="site-nav-instagram"
+              aria-label="ONHacks on Instagram">
+              <Instagram size={19} strokeWidth={2.25} aria-hidden="true" />
+            </a>
+          </div>
+        </header>
+
         <video
           autoPlay
           loop
@@ -145,14 +268,11 @@ export default function Home() {
           onCanPlay={() => setVideoReady(true)}
           className="absolute inset-0 h-full w-full object-cover"
           style={{ transform: `translateY(${parallax * 0.5}px) scale(1.1)` }}>
-          
           <source src={VIDEO_URL} type="video/mp4" />
         </video>
-        {/* legibility veil */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-black/50 hidden" />
-        
 
-        {/* OTHacks + date pinned top-left */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-black/50 hidden" />
+
         <div className="absolute top-0 left-0 p-[10vw]">
           <motion.h1
             initial={{ opacity: 0, y: -30, rotate: -3 }}
@@ -160,8 +280,7 @@ export default function Home() {
             transition={{ duration: 0.8, type: "spring", bounce: 0.5 }}
             className="font-bubbly text-inflated leading-none"
             style={{ fontSize: "clamp(4rem, 15vw, 12rem)" }}>
-            
-            OTHacks
+            ONHACKS
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -169,185 +288,178 @@ export default function Home() {
             transition={{ delay: 0.4, duration: 0.6 }}
             className="font-tech mt-4 tracking-[0.2em] font-bold text-xl text-[hsl(var(--foreground))]"
             style={{ fontSize: "clamp(1rem, 2.5vw, 1.5rem)", textShadow: "0 2px 12px rgba(0,0,0,0.8)" }}>
-            
             NOV 12 — 13
           </motion.p>
         </div>
 
-        {/* Register CTA bottom-right */}
         <motion.button
           onClick={() => navigate('/signin?returnTo=%2Fdashboard')}
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.7, type: "spring" }}
           className="absolute bottom-[10vw] right-[10vw] group">
-          
           <span className="block font-bungee text-[#F4F4F9] glass-sheet border border-[#FF2E2E]/60 rounded-full px-[clamp(1.5rem,3vw,2.5rem)] py-[clamp(0.7rem,1.2vw,1.25rem)] text-[clamp(1.25rem,2.2vw,2.25rem)] hover:bg-[#FF2E2E] hover:text-white hover:scale-110 transition-all duration-300 shadow-[0_0_40px_rgba(255,46,46,0.4)]">
             REGISTER →
           </span>
         </motion.button>
-
-        {/* scroll cue */}
-        
-
-        
       </section>
 
-      {/* ===== CHALLENGE MATRIX ===== */}
-      <section id="tracks" className="relative py-[clamp(2rem,4vw,3.5rem)] px-[10vw]">
-        <div className="mb-[clamp(1.5rem,3vw,3rem)]">
-          <h2 className="font-bubbly text-inflated-sm mt-3 mb-0 text-xs" style={{ fontSize: "clamp(1.4rem, 2.6vw, 2rem)" }}>
-            About
-          </h2>
-        </div>
-        <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] px-4 md:px-6 pt-5 pb-5">
-          <p className="text-black/70 leading-tight mb-0 text-[clamp(0.95rem,1.15vw,1.2rem)]">
-            OTHacks is a 12-hour hackathon bringing together 500 builders, designers, and dreamers to turn bold ideas into working prototypes. From the opening ceremony to the final demo, you'll race against the clock alongside some of the sharpest minds in the industry — shipping code, swapping ideas, and learning more in one day than most do in a semester. Expect non-stop coding, mentorship from industry veterans who've built the tools you use every day, free caffeine to keep the momentum alive, hardware and API credits to supercharge your stack, and a shot at glory across four competitive tracks. Whether you're a seasoned hacker or stepping into your first arena, OTHacks is your chance to build something real, meet your next collaborator, and prove what you can do when the clock is ticking. Bring a laptop, bring an idea, and bring your A-game.
-          </p>
-          <div className="flex gap-6 overflow-x-auto pb-6 no-scrollbar snap-x snap-mandatory">
-            {TRACKS.map((t, i) => {
-              const Icon = t.icon;
-              return null;
+      <section
+        ref={aboutSectionRef}
+        id="tracks"
+        aria-labelledby="about-onhacks-heading our-mission-heading"
+        className="about-river-section">
+        <div className="about-river-stage">
+          <div className="about-river-stream" aria-hidden="true">
+            <div
+              className="about-river-whale"
+              style={{
+                left: `${whalePoint.x}%`,
+                top: `${whalePoint.y}%`,
+              }}>
+              <div
+                className="about-river-whale-direction"
+                style={{ transform: whaleDirectionTransform }}>
+                <img
+                  src={WHALE_SPRITE}
+                  alt=""
+                  className="about-river-whale-sheet pixel-whale"
+                  style={{ transform: whaleSpriteTransform }}
+                />
+              </div>
+            </div>
+          </div>
 
-            })}
+          <img
+            src="/assets/beach1.png"
+            alt=""
+            aria-hidden="true"
+            loading="lazy"
+            className="about-river-beach pixel-art-asset"
+          />
+
+          <article className="about-river-block about-river-block--onhacks">
+            <h2 id="about-onhacks-heading" className="about-river-title font-bubbly">
+              About ONHacks
+            </h2>
+            <p>
+              ONHacks is a hackathon where students come together to explore technology,
+              collaborate with others, and turn their ideas into creative projects. It&apos;s
+              an opportunity to learn, build, and have fun while solving real-world problems.
+            </p>
+          </article>
+
+          <article className="about-river-block about-river-block--mission">
+            <h2 id="our-mission-heading" className="about-river-title font-bubbly">
+              Our Mission
+            </h2>
+            <p>
+              ONHacks is designed to provide high-school students with an opportunity to
+              learn, collaborate, and build something exciting in a welcoming environment.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section
+        id="partners"
+        aria-labelledby="partners-heading"
+        className="beach-texture-section">
+        <div className="beach-texture-section-inner">
+          <h2 id="partners-heading" className="beach-texture-title font-bubbly">
+            Our Partners
+          </h2>
+          <div className="partners-bubble-grid" aria-label="Partner placeholders">
+            {Array.from({ length: 4 }, (_, index) => (
+              <div
+                key={index}
+                className="partner-bubble"
+                role="img"
+                aria-label={`Partner ${index + 1} placeholder`}>
+                PARTNER
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ===== LOOMING DEADLINE / SCHEDULE ===== */}
-      <section id="schedule" className="relative py-[clamp(2rem,4vw,3.5rem)] px-[10vw]">
-        <div className="mb-[clamp(1.5rem,3vw,3rem)]">
-          <h2 className="font-bubbly text-inflated-sm mt-3 mb-0 text-xs" style={{ fontSize: "clamp(1.4rem, 2.6vw, 2rem)" }}>
-            Live Schedule
-          </h2>
-        </div>
-        <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] px-[clamp(1.25rem,2.5vw,2.5rem)] py-[clamp(1.25rem,2vw,2.5rem)]">
-          <div className="max-w-3xl">
-            {SCHEDULE.map((s, i) =>
-            <motion.div
-              key={s.time}
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{ delay: i * 0.05 }}
-              className="relative flex items-center gap-[clamp(0.75rem,1.5vw,1.25rem)] py-[clamp(0.5rem,0.8vw,0.85rem)] border-l-2 pl-[clamp(1rem,1.8vw,1.5rem)]"
-              style={{ borderColor: s.live ? "#FF2E2E" : "rgba(0,0,0,0.1)" }}>
-              
-                <span
-                className={`absolute -left-[6px] w-2.5 h-2.5 rounded-full ${s.live ? "bg-[#FF2E2E] shadow-[0_0_12px_#FF2E2E] animate-pulse" : "bg-black/20"}`} />
-              
-                <span className="font-tech text-[clamp(0.75rem,0.9vw,0.95rem)] text-black w-[clamp(5.5rem,9vw,7.5rem)] shrink-0">{s.time}</span>
-                <span className={`text-[clamp(0.8rem,1vw,1.05rem)] ${s.live ? "text-black font-bold" : "text-black/80"}`}>{s.label}</span>
-                
-              </motion.div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ===== COMMAND CENTER / REGISTER ===== */}
-      <section id="register" className="relative py-32 px-[10vw] text-center hidden">
-        <Trophy className="mx-auto text-[#FF2E2E] mb-6 hidden" size={48} />
-        <h2 className="font-bubbly text-inflated-sm mb-6 hidden" style={{ fontSize: "clamp(3rem, 9vw, 7rem)" }}>
-          48 Hours.<br />One Arena.
+      <section
+        id="sponsors"
+        aria-labelledby="sponsors-heading"
+        className="sponsors-heading-section">
+        <h2 id="sponsors-heading" className="sponsors-heading font-bubbly">
+          Our Sponsors
         </h2>
-        <p className="text-[#0A1A2A]/70 max-w-xl mx-auto mb-10 leading-relaxed hidden">
-          Join 500 builders for two days of relentless creation. Mentorship, caffeine, and glory await.
-        </p>
-        <button
-          onClick={() => setRegisterOpen(true)}
-          className="font-bungee text-xl md:text-2xl text-white bg-[#FF2E2E] rounded-full px-12 py-5 hover:scale-110 transition-transform shadow-[0_0_50px_rgba(255,46,46,0.5)] hidden">
-          
-          CLAIM YOUR SPOT →
-        </button>
-      </section>
-
-      {/* ===== SPONSOR STRIP ===== */}
-      <section id="sponsors" className="relative py-[clamp(1.75rem,3.5vw,3rem)] px-[10vw]">
-        
-        <h2 className="font-bubbly text-inflated-sm mt-3 mb-[clamp(1.5rem,3vw,3rem)] text-xs" style={{ fontSize: "clamp(1.4rem, 2.6vw, 2rem)" }}>Sponsors</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-[clamp(0.75rem,1.5vw,1.5rem)]">
-          {Array.from({ length: 8 }).map((_, i) =>
-          <motion.div
-            key={i}
-            initial={{ rotate: 0 }}
-            animate={{ rotate: 0 }}
-            whileHover={{ rotate: [0, -4, 4, -3, 2, 0] }}
-            transition={{ duration: 0.45, ease: 'easeInOut' }}
-            className="glass-card-light rounded-xl h-[clamp(3rem,5vw,4.5rem)] flex items-center justify-center font-tech text-[clamp(0.65rem,0.8vw,0.85rem)] uppercase tracking-widest text-black/50 cursor-pointer">
-              Sponsor {i + 1}
-            </motion.div>
-          )}
+        <div className="partners-bubble-grid sponsors-bubble-grid" aria-label="Sponsor placeholders">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div
+              key={index}
+              className="partner-bubble"
+              role="img"
+              aria-label={`Sponsor ${index + 1} placeholder`}>
+              SPONSOR
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* ===== FAQ ===== */}
-<section id="faq" className="relative py-[clamp(1.75rem,3.5vw,3rem)] px-[10vw]">
-        
-  <h2 className="font-bubbly text-inflated-sm mt-3 mb-[clamp(1.5rem,3vw,3rem)] text-xs" style={{ fontSize: "clamp(1.4rem, 2.6vw, 2rem)" }}>FAQ</h2>
-
-  <div className="max-w-3xl space-y-[clamp(0.75rem,1.2vw,1.25rem)]">
-    {[
-      {
-        question: "What is ONHacks?",
-        answer: "ONHacks is a hackathon where students come together to explore technology, collaborate with others, and turn their ideas into creative projects. It's an opportunity to learn, build, and have fun while solving real-world problems."
-      },
-      {
-        question: "Do I need coding experience?",
-        answer: "Not at all! ONHacks welcomes students with different skills and experience levels. Whether you're interested in coding, design, research, or presenting, there's a way for you to contribute."
-      },
-      {
-        question: "Who can participate?",
-        answer: "ONHacks is designed to provide high-school students with an opportunity to learn, collaborate, and build something exciting in a welcoming environment."
-      },
-      {
-        question: "Do I need to have a team?",
-        answer: "You don't necessarily need to have a team beforehand. Participants will have opportunities to connect with others and collaborate on their projects. If you are planning to participate individually that is also acceptable."
-      },
-      {
-        question: "What can I build at ONHacks?",
-        answer: "You can turn your ideas into a wide variety of projects, such as websites, applications, games, or other technology-based solutions."
-      },
-      {
-        question: "What should I bring to ONHacks?",
-        answer: "Bring your creativity, ideas, and willingness to learn! You should also bring anything you need to work on your project, such as a laptop and charger."
-      },
-      {
-        question: "Will there be prizes?",
-        answer: "Yes and more information about prizes, judging, and awards will be announced closer to the event."
-      },
-      {
-        question: "How do I register?",
-        answer: "Registration details will be announced closer to the event. Stay tuned for updates on how to sign up!"
-      }
-    ].map((faq, i) =>
-      <div key={i} className="glass-card-light rounded-xl p-[clamp(0.85rem,1.5vw,1.5rem)]">
-          <p className="font-bungee text-[clamp(0.85rem,1.1vw,1.15rem)] text-black mb-[clamp(0.3rem,0.5vw,0.5rem)]">{faq.question}</p>
-          <p className="text-black/60 leading-relaxed text-[clamp(0.75rem,0.95vw,1rem)]">{faq.answer}</p>
-      </div>
-    )}
-  </div>
-</section>
-
-      {/* ===== ORGANIZERS — MINECART INFINITE SCROLL ===== */}
-      <section id="organizers" className="relative py-[clamp(1.75rem,3.5vw,3rem)]">
-        <div className="px-[10vw] mb-[clamp(1.25rem,2.5vw,2.5rem)]">
-          
-          <h2 className="font-bubbly text-inflated-sm mt-3 mb-2 text-xs" style={{ fontSize: "clamp(1.4rem, 2.6vw, 2rem)" }}>Organizers</h2>
-          
+      <section
+        id="faq"
+        aria-labelledby="faq-heading"
+        className="sponsors-depth-transition">
+        <div className="faq-transition-content">
+          <h2 id="faq-heading" className="faq-transition-title font-bubbly">
+            FAQ
+          </h2>
+          <div className="faq-question-list" role="list" aria-label="Frequently asked questions">
+            {FAQ_ITEMS.map(({ question, answer }) => (
+              <details key={question} className="faq-question" role="listitem">
+                <summary>
+                  <span>{question}</span>
+                  <ChevronDown
+                    className="faq-question-chevron"
+                    size={22}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                  />
+                </summary>
+                <p className="faq-answer">{answer}</p>
+              </details>
+            ))}
+          </div>
         </div>
-        <MinecartOrganizers />
       </section>
-
-      {/* ===== FOOTER ===== */}
-      <footer className="relative z-10 bg-[#0A0A0A] border-t border-white/10 py-[clamp(1rem,2vw,2rem)] px-[10vw] flex flex-col md:flex-row justify-between gap-[clamp(0.5rem,1vw,1rem)] items-center">
-        <span className="font-bubbly text-inflated-sm text-[clamp(1rem,1.5vw,1.5rem)]">OTHacks</span>
-        <span className="font-tech text-[clamp(0.6rem,0.75vw,0.8rem)] uppercase tracking-[0.3em] text-white/50">Nov 12-13 · Built by builders, for builders</span>
-      </footer>
-
-      <AnimatePresence>
-        <RegisterOverlay open={registerOpen} onClose={() => setRegisterOpen(false)} />
-      </AnimatePresence>
-    </div>);
-
+      <section
+        id="organizers"
+        aria-labelledby="organizers-heading"
+        className="submarine-organizers-section">
+        <img
+          src="/assets/ocean-floor.png"
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+          className="organizer-ocean-floor"
+        />
+        <div className="organizer-coral-corners" aria-hidden="true">
+          <img
+            src="/assets/coral-fan-red.png"
+            alt=""
+            draggable="false"
+            className="organizer-coral organizer-coral--left pixel-art-asset"
+          />
+          <img
+            src="/assets/coral2.png"
+            alt=""
+            draggable="false"
+            className="organizer-coral organizer-coral--right pixel-art-asset"
+          />
+        </div>
+        <h2 id="organizers-heading" className="submarine-organizers-title font-bubbly">
+          Organizers
+        </h2>
+        <SubmarineOrganizers />
+      </section>
+      <div className="sponsors-deep-blue-section" aria-hidden="true" />
+    </div>
+  );
 }

@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
+import helmet from 'helmet';
 import pg from 'pg';
 import {
   createHash,
@@ -22,12 +24,13 @@ const scrypt = (password, salt, keyLength, options) => new Promise((resolve, rej
 });
 
 const app = express();
+const isProduction = process.env.NODE_ENV === 'production';
 const port = Number(process.env.PORT || 10000);
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(serverDirectory, '..');
 const distDirectory = path.join(projectRoot, 'dist');
 const databaseUrl = process.env.DATABASE_URL;
-const sessionCookieName = 'othacks_session';
+const sessionCookieName = isProduction ? '__Host-onhacks_session' : 'onhacks_session';
 const sessionDurationSeconds = 60 * 60 * 24 * 30;
 const passwordHashOptions = {
   N: 16_384,
@@ -39,11 +42,47 @@ const passwordHashOptions = {
 const pool = databaseUrl
   ? new Pool({
       connectionString: databaseUrl,
-      ssl: process.env.NODE_ENV === 'production'
+      ssl: isProduction
         ? { rejectUnauthorized: false }
         : undefined,
     })
   : null;
+
+const rateLimitResponse = (message) => (_request, response) => {
+  response.status(429).json({ error: message });
+};
+
+const apiRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: rateLimitResponse('Too many requests. Please try again shortly.'),
+});
+
+const authRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: rateLimitResponse('Too many sign-in attempts. Please try again in a few minutes.'),
+});
+
+const applicationRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: rateLimitResponse('Too many application submissions. Please try again shortly.'),
+});
+
+const stateChangingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const localDevelopmentOrigins = new Set([
+  'http://localhost:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:4173',
+]);
 
 const allowedTracks = new Set([
   'AI / ML',
@@ -149,10 +188,11 @@ function setSessionCookie(response, token) {
     'Path=/',
     'HttpOnly',
     'SameSite=Lax',
+    'Priority=High',
     `Max-Age=${sessionDurationSeconds}`,
   ];
 
-  if (process.env.NODE_ENV === 'production') {
+  if (isProduction) {
     attributes.push('Secure');
   }
 
@@ -165,10 +205,11 @@ function clearSessionCookie(response) {
     'Path=/',
     'HttpOnly',
     'SameSite=Lax',
+    'Priority=High',
     'Max-Age=0',
   ];
 
-  if (process.env.NODE_ENV === 'production') {
+  if (isProduction) {
     attributes.push('Secure');
   }
 
@@ -324,7 +365,7 @@ function validateEventApplication(body = {}) {
     errors.supplies = 'You must confirm that you are bringing your supplies.';
   }
   if (!application.heardAbout || application.heardAbout.length > 500) {
-    errors.heardAbout = 'Tell us how you heard about OTHacks.';
+    errors.heardAbout = 'Tell us how you heard about ONHacks.';
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(application.email) || application.email.length > 254) {
     errors.email = 'Enter a valid email address.';
@@ -333,7 +374,64 @@ function validateEventApplication(body = {}) {
   return { application, errors };
 }
 
+app.set('trust proxy', isProduction ? 1 : false);
 app.disable('x-powered-by');
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'", 'data:'],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      frameSrc: ["'none'"],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      mediaSrc: ["'self'", 'blob:'],
+      objectSrc: ["'none'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      upgradeInsecureRequests: isProduction ? [] : null,
+      workerSrc: ["'self'", 'blob:'],
+    },
+  },
+  hsts: isProduction
+    ? { maxAge: 31536000, includeSubDomains: true, preload: false }
+    : false,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+}));
+
+function isTrustedOrigin(request) {
+  const origin = request.get('origin');
+  if (!origin) return true;
+
+  if (!isProduction && localDevelopmentOrigins.has(origin)) {
+    return true;
+  }
+
+  return origin === `${request.protocol}://${request.get('host')}`;
+}
+
+function sameOriginGuard(request, response, next) {
+  if (!stateChangingMethods.has(request.method)) return next();
+
+  const origin = request.get('origin');
+  const fetchSite = request.get('sec-fetch-site');
+  if ((origin && !isTrustedOrigin(request)) || (!origin && fetchSite === 'cross-site')) {
+    return response.status(403).json({ error: 'Request origin is not allowed.' });
+  }
+
+  return next();
+}
+
+function noStoreApiResponse(_request, response, next) {
+  response.setHeader('Cache-Control', 'no-store');
+  return next();
+}
+
+app.use('/api', apiRateLimit);
+app.use('/api', noStoreApiResponse);
+app.use('/api', sameOriginGuard);
 app.use(express.json({ limit: '32kb' }));
 
 app.get('/api/health', async (_request, response) => {
@@ -357,7 +455,7 @@ app.get('/api/auth/me', async (request, response, next) => {
   }
 });
 
-app.post('/api/auth/signup', async (request, response, next) => {
+app.post('/api/auth/signup', authRateLimit, async (request, response, next) => {
   if (!pool) {
     return response.status(503).json({
       error: 'Account creation is temporarily unavailable. Please try again later.',
@@ -392,7 +490,7 @@ app.post('/api/auth/signup', async (request, response, next) => {
   }
 });
 
-app.post('/api/auth/signin', async (request, response, next) => {
+app.post('/api/auth/signin', authRateLimit, async (request, response, next) => {
   if (!pool) {
     return response.status(503).json({
       error: 'Sign in is temporarily unavailable. Please try again later.',
@@ -455,7 +553,7 @@ app.get('/api/event-applications/me', requireAuth, async (request, response, nex
   }
 });
 
-app.post('/api/event-applications', async (request, response, next) => {
+app.post('/api/event-applications', applicationRateLimit, async (request, response, next) => {
   if (!pool) {
     return response.status(503).json({
       error: 'Applications are temporarily unavailable. Please try again later.',
@@ -492,7 +590,7 @@ app.post('/api/event-applications', async (request, response, next) => {
   }
 });
 
-app.post('/api/applications', async (request, response, next) => {
+app.post('/api/applications', applicationRateLimit, async (request, response, next) => {
   if (!pool) {
     return response.status(503).json({
       error: 'Registration is temporarily unavailable. Please try again later.',
@@ -555,7 +653,7 @@ app.use((error, _request, response, _next) => {
 });
 
 async function start() {
-  if (process.env.NODE_ENV === 'production' && !pool) {
+  if (isProduction && !pool) {
     throw new Error('DATABASE_URL must be configured in production.');
   }
 
@@ -569,7 +667,7 @@ async function start() {
   }
 
   const server = app.listen(port, () => {
-    console.log(`OTHacks listening on port ${port}`);
+    console.log(`ONHacks listening on port ${port}`);
   });
 
   const shutdown = async () => {

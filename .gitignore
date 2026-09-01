@@ -5,3 +5,8 @@ dist/
 !.env.example
 AGENTS.md
 CLAUDE.md
+
+# Local browser and visual QA artifacts
+.playwright-mcp/
+beach-section-local*.png
+sand-texture-current.png
