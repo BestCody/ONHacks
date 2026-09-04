@@ -313,7 +313,7 @@ export default function Home() {
             transition={{ delay: 0.4, duration: 0.6 }}
             className="font-tech mt-4 tracking-[0.2em] font-bold text-xl text-[hsl(var(--foreground))]"
             style={{ fontSize: "clamp(1rem, 2.5vw, 1.5rem)", textShadow: "0 2px 12px rgba(0,0,0,0.8)" }}>
-            NOV 12 — 13
+            NOVEMBER 18
           </motion.p>
         </div>
 
