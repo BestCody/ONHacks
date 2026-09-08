@@ -1621,11 +1621,6 @@
     line-height: 0.95;
   }
 
-  .sponsors-bubble-grid {
-    margin-right: auto;
-    margin-left: auto;
-  }
-
   .partners-bubble-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1641,7 +1636,7 @@
     place-items: center;
     border: 3px solid rgba(6, 45, 70, 0.52);
     border-radius: 1.5rem;
-    background: rgba(255, 255, 255, 0.16);
+    background: #fff;
     color: #062d46;
     font-family: 'Bungee', cursive;
     font-size: clamp(0.62rem, 1.25vw, 1rem);
@@ -1650,6 +1645,40 @@
     text-align: center;
     transform-origin: center bottom;
     transition: transform 180ms ease;
+  }
+
+  .sponsor-logo {
+    display: block;
+    width: min(78%, 16rem);
+    max-height: 72%;
+    object-fit: contain;
+    mix-blend-mode: multiply;
+  }
+
+  .sponsors-bubble-stack {
+    display: grid;
+    width: min(100%, 48rem);
+    gap: clamp(1.25rem, 3vw, 2.5rem);
+    margin: clamp(3rem, 5vw, 4rem) auto 0;
+  }
+
+  .sponsor-bubble {
+    text-decoration: none;
+  }
+
+  .sponsor-bubble--featured {
+    height: clamp(12rem, 18vw, 16rem);
+  }
+
+  .sponsor-bubble--featured .sponsor-logo {
+    width: min(78%, 24rem);
+    max-height: 82%;
+  }
+
+  .sponsors-supporting-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(1rem, 3vw, 2.5rem);
   }
 
   .partner-bubble:hover {
@@ -1783,6 +1812,19 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 1.25rem;
       margin-top: 2.5rem;
+    }
+
+    .sponsors-bubble-stack {
+      gap: 1.25rem;
+      margin-top: 2.5rem;
+    }
+
+    .sponsor-bubble--featured {
+      height: 11rem;
+    }
+
+    .sponsors-supporting-grid {
+      gap: 1.25rem;
     }
 
     .partner-bubble {

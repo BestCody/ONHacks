@@ -26,6 +26,31 @@ const WHALE_SPRITE_FRAMES = [-24, -62, -104, -150, -190, -243, -292];
 const WHALE_TURN_FRAMES = [-24, -73, -116, -211, -271];
 const WHALE_TURN_X = -145;
 
+const SPONSORS = [
+  {
+    name: 'Presage Technologies',
+    logo: '/assets/sponsors/PRESAGE_LOGO_CLEAR_BG_LG_BLACK_LTRS_83953b321a.png',
+    href: 'https://presagetech.com/',
+  },
+];
+
+function SponsorBubble({ sponsor, featured = false }) {
+  return (
+    <a
+      href={sponsor.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`partner-bubble sponsor-bubble${featured ? ' sponsor-bubble--featured' : ''}`}
+      aria-label={`Visit ${sponsor.name} website`}>
+      <img
+        src={sponsor.logo}
+        alt={sponsor.name}
+        className="sponsor-logo"
+      />
+    </a>
+  );
+}
+
 const FAQ_ITEMS = [
   {
     question: 'What is a hackathon?',
@@ -415,16 +440,17 @@ export default function Home() {
         <h2 id="sponsors-heading" className="sponsors-heading font-bubbly">
           Our Sponsors
         </h2>
-        <div className="partners-bubble-grid sponsors-bubble-grid" aria-label="Sponsor placeholders">
-          {Array.from({ length: 4 }, (_, index) => (
-            <div
-              key={index}
-              className="partner-bubble"
-              role="img"
-              aria-label={`Sponsor ${index + 1} placeholder`}>
-              SPONSOR
+        <div className="sponsors-bubble-stack" aria-label="Sponsors">
+          {SPONSORS[0] && (
+            <SponsorBubble sponsor={SPONSORS[0]} featured />
+          )}
+          {SPONSORS.length > 1 && (
+            <div className="sponsors-supporting-grid" aria-label="Additional sponsors">
+              {SPONSORS.slice(1).map((sponsor) => (
+                <SponsorBubble key={sponsor.name} sponsor={sponsor} />
+              ))}
             </div>
-          ))}
+          )}
         </div>
       </section>
 
