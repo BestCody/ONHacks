@@ -28,25 +28,52 @@ const WHALE_TURN_X = -145;
 
 const SPONSORS = [
   {
+    name: 'Candor Circuit Boards',
+    logo: '/assets/sponsors/logo-fc.png',
+  },
+  {
     name: 'Presage Technologies',
     logo: '/assets/sponsors/PRESAGE_LOGO_CLEAR_BG_LG_BLACK_LTRS_83953b321a.png',
     href: 'https://presagetech.com/',
   },
 ];
 
+const PARTNERS = [
+  {
+    name: 'Next Generation Hacks',
+    logo: '/assets/partners/ngnhacks.png',
+  },
+  null,
+  null,
+  null,
+];
+
 function SponsorBubble({ sponsor, featured = false }) {
-  return (
-    <a
-      href={sponsor.href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`partner-bubble sponsor-bubble${featured ? ' sponsor-bubble--featured' : ''}`}
-      aria-label={`Visit ${sponsor.name} website`}>
+  const bubbleClassName = `partner-bubble sponsor-bubble${featured ? ' sponsor-bubble--featured' : ''}`;
+  const bubbleContent = (
       <img
         src={sponsor.logo}
         alt={sponsor.name}
         className="sponsor-logo"
       />
+  );
+
+  if (!sponsor.href) {
+    return (
+      <div className={bubbleClassName} role="img" aria-label={sponsor.name}>
+        {bubbleContent}
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={sponsor.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={bubbleClassName}
+      aria-label={`Visit ${sponsor.name} website`}>
+      {bubbleContent}
     </a>
   );
 }
@@ -419,14 +446,18 @@ export default function Home() {
           <h2 id="partners-heading" className="beach-texture-title font-bubbly">
             Our Partners
           </h2>
-          <div className="partners-bubble-grid" aria-label="Partner placeholders">
-            {Array.from({ length: 4 }, (_, index) => (
+          <div className="partners-bubble-grid" aria-label="Partners">
+            {PARTNERS.map((partner, index) => (
               <div
-                key={index}
-                className="partner-bubble"
+                key={partner?.name ?? `partner-placeholder-${index}`}
+                className={`partner-bubble${partner ? ' partner-bubble--ngnhacks' : ''}`}
                 role="img"
-                aria-label={`Partner ${index + 1} placeholder`}>
-                PARTNER
+                aria-label={partner?.name ?? `Partner ${index + 1} placeholder`}>
+                {partner ? (
+                  <img src={partner.logo} alt={partner.name} className="partner-logo" />
+                ) : (
+                  'PARTNER'
+                )}
               </div>
             ))}
           </div>
@@ -441,16 +472,9 @@ export default function Home() {
           Our Sponsors
         </h2>
         <div className="sponsors-bubble-stack" aria-label="Sponsors">
-          {SPONSORS[0] && (
-            <SponsorBubble sponsor={SPONSORS[0]} featured />
-          )}
-          {SPONSORS.length > 1 && (
-            <div className="sponsors-supporting-grid" aria-label="Additional sponsors">
-              {SPONSORS.slice(1).map((sponsor) => (
-                <SponsorBubble key={sponsor.name} sponsor={sponsor} />
-              ))}
-            </div>
-          )}
+          {SPONSORS.map((sponsor) => (
+            <SponsorBubble key={sponsor.name} sponsor={sponsor} featured />
+          ))}
         </div>
       </section>
 

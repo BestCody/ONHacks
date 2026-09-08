@@ -1647,6 +1647,18 @@
     transition: transform 180ms ease;
   }
 
+  .partner-bubble--ngnhacks {
+    overflow: hidden;
+    background: #1e1eb4;
+  }
+
+  .partner-logo {
+    display: block;
+    width: 10rem;
+    height: 10rem;
+    object-fit: contain;
+  }
+
   .sponsor-logo {
     display: block;
     width: min(78%, 16rem);
@@ -1673,12 +1685,6 @@
   .sponsor-bubble--featured .sponsor-logo {
     width: min(78%, 24rem);
     max-height: 82%;
-  }
-
-  .sponsors-supporting-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(1rem, 3vw, 2.5rem);
   }
 
   .partner-bubble:hover {
@@ -1821,10 +1827,6 @@
 
     .sponsor-bubble--featured {
       height: 11rem;
-    }
-
-    .sponsors-supporting-grid {
-      gap: 1.25rem;
     }
 
     .partner-bubble {
