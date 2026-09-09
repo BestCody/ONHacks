@@ -30,11 +30,31 @@ const SPONSORS = [
   {
     name: 'Candor Circuit Boards',
     logo: '/assets/sponsors/logo-fc.png',
+    featured: true,
+  },
+  {
+    name: 'Tin Computer',
+    logo: '/assets/sponsors/tincomputer.png',
+    href: 'https://tin.computer/',
+    featured: true,
   },
   {
     name: 'Presage Technologies',
     logo: '/assets/sponsors/PRESAGE_LOGO_CLEAR_BG_LG_BLACK_LTRS_83953b321a.png',
     href: 'https://presagetech.com/',
+    featured: true,
+  },
+  {
+    name: 'PCBWay',
+    logo: '/assets/sponsors/pcbway.png',
+    href: 'https://www.pcbway.com/',
+    featured: false,
+  },
+  {
+    name: 'Zulip',
+    logo: '/assets/sponsors/zulip-icon-128x128.png',
+    href: 'https://zulip.com/',
+    featured: false,
   },
 ];
 
@@ -42,14 +62,46 @@ const PARTNERS = [
   {
     name: 'Next Generation Hacks',
     logo: '/assets/partners/ngnhacks.png',
+    href: 'https://www.ngnhacks.ca/',
   },
   null,
   null,
   null,
 ];
 
+function PartnerBubble({ partner, index }) {
+  const className = `partner-bubble${partner ? ' partner-bubble--ngnhacks' : ''}`;
+  const ariaLabel = partner?.href
+    ? `Visit ${partner.name} website`
+    : partner?.name ?? `Partner ${index + 1} placeholder`;
+  const content = partner ? (
+    <img src={partner.logo} alt={partner.name} className="partner-logo" />
+  ) : (
+    'PARTNER'
+  );
+
+  if (partner?.href) {
+    return (
+      <a
+        href={partner.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+        aria-label={ariaLabel}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <div className={className} role="img" aria-label={ariaLabel}>
+      {content}
+    </div>
+  );
+}
+
 function SponsorBubble({ sponsor, featured = false }) {
-  const bubbleClassName = `partner-bubble sponsor-bubble${featured ? ' sponsor-bubble--featured' : ''}`;
+  const bubbleClassName = `partner-bubble sponsor-bubble${featured ? ' sponsor-bubble--featured' : ' sponsor-bubble--small'}`;
   const bubbleContent = (
       <img
         src={sponsor.logo}
@@ -448,17 +500,11 @@ export default function Home() {
           </h2>
           <div className="partners-bubble-grid" aria-label="Partners">
             {PARTNERS.map((partner, index) => (
-              <div
+              <PartnerBubble
                 key={partner?.name ?? `partner-placeholder-${index}`}
-                className={`partner-bubble${partner ? ' partner-bubble--ngnhacks' : ''}`}
-                role="img"
-                aria-label={partner?.name ?? `Partner ${index + 1} placeholder`}>
-                {partner ? (
-                  <img src={partner.logo} alt={partner.name} className="partner-logo" />
-                ) : (
-                  'PARTNER'
-                )}
-              </div>
+                partner={partner}
+                index={index}
+              />
             ))}
           </div>
         </div>
@@ -472,9 +518,14 @@ export default function Home() {
           Our Sponsors
         </h2>
         <div className="sponsors-bubble-stack" aria-label="Sponsors">
-          {SPONSORS.map((sponsor) => (
+          {SPONSORS.filter((sponsor) => sponsor.featured).map((sponsor) => (
             <SponsorBubble key={sponsor.name} sponsor={sponsor} featured />
           ))}
+          <div className="sponsors-supporting-grid" aria-label="Additional sponsors">
+            {SPONSORS.filter((sponsor) => !sponsor.featured).map((sponsor) => (
+              <SponsorBubble key={sponsor.name} sponsor={sponsor} />
+            ))}
+          </div>
         </div>
       </section>
 

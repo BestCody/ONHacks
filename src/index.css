@@ -1661,9 +1661,12 @@
 
   .sponsor-logo {
     display: block;
+    min-width: 0;
+    min-height: 0;
     width: min(78%, 16rem);
-    max-height: 72%;
+    height: min(72%, 6rem);
     object-fit: contain;
+    object-position: center;
     mix-blend-mode: multiply;
   }
 
@@ -1684,7 +1687,17 @@
 
   .sponsor-bubble--featured .sponsor-logo {
     width: min(78%, 24rem);
-    max-height: 82%;
+    height: min(82%, 12rem);
+  }
+
+  .sponsors-supporting-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(1rem, 3vw, 2.5rem);
+  }
+
+  .sponsor-bubble--small {
+    height: clamp(7rem, 11vw, 9rem);
   }
 
   .partner-bubble:hover {
@@ -1827,6 +1840,10 @@
 
     .sponsor-bubble--featured {
       height: 11rem;
+    }
+
+    .sponsors-supporting-grid {
+      gap: 1.25rem;
     }
 
     .partner-bubble {
