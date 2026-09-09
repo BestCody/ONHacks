@@ -162,9 +162,9 @@ const FAQ_ITEMS = [
       'Organizers will share the event communication channel before the hackathon. Use it for announcements, help requests, mentor updates, and questions, while your team can use its own group chat for day-to-day coordination.',
   },
   {
-    question: 'Can I participate remotely?',
+    question: 'Do I need to attend in person?',
     answer:
-      'Remote participation depends on the event format. Check the registration details for whether ONHacks offers a remote option and which tools remote teams should use if one is available.',
+      'Yes. ONHacks is an in-person hackathon, so participants must attend at the event venue.',
   },
   {
     question: "What if I don't know how to code?",
