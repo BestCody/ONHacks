@@ -144,7 +144,7 @@ const FAQ_ITEMS = [
   {
     question: 'Is it free? Will food be provided?',
     answer:
-      'Student hackathons are often free and provide food or snacks through sponsors. ONHacks will confirm its registration fee, meal plan, and dietary options in the event details shared with participants.',
+      'ONHacks is completely free to attend, and free food will be provided during the event.',
   },
   {
     question: 'What should my project be about?',
@@ -154,7 +154,7 @@ const FAQ_ITEMS = [
   {
     question: 'How many people are in a team?',
     answer:
-      'Team limits vary by event, so the final ONHacks maximum will be listed in registration. Small teams of two to four are common because they make it easier to share skills, divide the work, and finish a prototype.',
+      'Teams can have up to 4 people.',
   },
   {
     question: 'How will we communicate during the event?',
@@ -417,7 +417,7 @@ export default function Home() {
             transition={{ delay: 0.4, duration: 0.6 }}
             className="font-tech mt-4 tracking-[0.2em] font-bold text-xl text-[hsl(var(--foreground))]"
             style={{ fontSize: "clamp(1rem, 2.5vw, 1.5rem)", textShadow: "0 2px 12px rgba(0,0,0,0.8)" }}>
-            NOVEMBER 18
+            NOVEMBER 15
           </motion.p>
         </div>
 
