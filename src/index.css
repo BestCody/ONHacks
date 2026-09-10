@@ -1255,7 +1255,7 @@
 
   .beach-texture-section {
     position: relative;
-    min-height: clamp(36rem, 85vh, 60rem);
+    min-height: 0;
     z-index: 2;
     overflow: visible;
     scroll-margin-top: 6rem;
@@ -1292,10 +1292,10 @@
     justify-content: flex-start;
     position: relative;
     z-index: 1;
-    min-height: inherit;
+    min-height: 0;
     width: 100%;
     box-sizing: border-box;
-    padding: clamp(6rem, 14vh, 10rem) 2rem 2rem;
+    padding: clamp(6rem, 14vh, 10rem) 2rem 0;
   }
 
   .sponsors-depth-transition {
@@ -1605,7 +1605,7 @@
   }
 
   .sponsors-heading-section {
-    padding: calc(clamp(2.5rem, 4vw, 3.5rem) + 3rem) 2rem 0;
+    padding: clamp(3rem, 4vw, 5rem) 2rem 0;
     scroll-margin-top: 6rem;
     background-color: #f0d38f;
     background-image: url('/assets/seamless-cartoon-sand-texture-vector-great-picture-background-illustrations-packaging_802913-58.avif');
@@ -1772,16 +1772,17 @@
     }
 
     .beach-texture-section {
-      min-height: 34rem;
+      min-height: 0;
       background-size: 18rem 18rem;
     }
 
     .beach-texture-section-inner {
       padding-top: 5rem;
+      padding-bottom: 0;
     }
 
     .sponsors-heading-section {
-      padding-top: 6rem;
+      padding-top: 3rem;
       padding-bottom: 0;
       background-size: 18rem 18rem;
     }
