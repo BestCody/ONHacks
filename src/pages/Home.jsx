@@ -30,6 +30,7 @@ const SPONSORS = [
   {
     name: 'Candor Circuit Boards',
     logo: '/assets/sponsors/logo-fc.png',
+    href: 'https://www.candorind.com/',
     featured: true,
   },
   {
@@ -64,13 +65,15 @@ const PARTNERS = [
     logo: '/assets/partners/ngnhacks.png',
     href: 'https://www.ngnhacks.ca/',
   },
-  null,
-  null,
-  null,
+  {
+    name: 'Engineering Outreach',
+    logo: '/assets/partners/engineering outreach.png',
+    href: 'https://uwaterloo.ca/engineering-outreach/',
+  },
 ];
 
 function PartnerBubble({ partner, index }) {
-  const className = `partner-bubble${partner ? ' partner-bubble--ngnhacks' : ''}`;
+  const className = `partner-bubble${partner ? ' partner-bubble--branded' : ''}`;
   const ariaLabel = partner?.href
     ? `Visit ${partner.name} website`
     : partner?.name ?? `Partner ${index + 1} placeholder`;
