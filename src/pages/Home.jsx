@@ -57,6 +57,12 @@ const SPONSORS = [
     href: 'https://zulip.com/',
     featured: false,
   },
+  {
+    name: 'Gradium AI',
+    logo: '/assets/sponsors/gradiumai.png',
+    href: 'https://gradium.ai/',
+    featured: false,
+  },
 ];
 
 const PARTNERS = [
