@@ -3,6 +3,7 @@ import SubmarineBubbleField from './SubmarineBubbleField';
 
 const ORGANIZERS = [
   { name: 'Ben Hadfield', image: '/assets/organizers/Ben Hadfield.png' },
+  { name: 'Catcubby', image: '/assets/organizers/Catcubby.png' },
   {
     name: 'Caseyna Ponniah',
     image: '/assets/organizers/Caseyna Ponniah.png',
@@ -13,6 +14,8 @@ const ORGANIZERS = [
     image: '/assets/organizers/Charlie Shao.png',
     linkedin: 'https://www.linkedin.com/in/charlie-shao-499b38382/',
   },
+  { name: 'Daniel Farah', image: '/assets/organizers/Daniel Farah.png' },
+  { name: 'Dylan Li', image: '/assets/organizers/Dylan Li.png' },
   { name: 'Hanze Lou', image: '/assets/organizers/Hanze Lou.png' },
   { name: 'Joel Daniel', image: '/assets/organizers/Joel Daniel.png' },
   { name: 'Maha Latify', image: '/assets/organizers/Maha Latify.png' },
@@ -22,6 +25,8 @@ const ORGANIZERS = [
     linkedin: 'https://www.linkedin.com/in/minghan-michelle-wu-b36199318',
   },
   { name: 'Nicholas Ossine', image: '/assets/organizers/Nicholas Ossine.png' },
+  { name: 'Rahul Dhandapani', image: '/assets/organizers/Rahul Dhandapani.png' },
+  { name: 'Vera Yeh', image: '/assets/organizers/Vera Yeh.png' },
   { name: 'Wenxuan Su', image: '/assets/organizers/Wenxuan Su.png' },
 ];
 

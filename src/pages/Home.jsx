@@ -63,6 +63,12 @@ const SPONSORS = [
     href: 'https://gradium.ai/',
     featured: false,
   },
+      {
+        name: 'McMaster University',
+        logo: '/assets/sponsors/mcmaster-logo-2024-col.jpg',
+        href: 'https://www.mcmaster.ca/',
+        featured: true,
+      },
 ];
 
 const PARTNERS = [
@@ -72,14 +78,21 @@ const PARTNERS = [
     href: 'https://www.ngnhacks.ca/',
   },
   {
-    name: 'Engineering Outreach',
-    logo: '/assets/partners/engineering outreach.png',
-    href: 'https://uwaterloo.ca/engineering-outreach/',
+    name: 'Club Launch',
+    logo: '/assets/partners/clublaunch.png',
+    href: 'https://clublaunch.vercel.app/',
+  },
+  {
+    name: 'Hack Club',
+    logo: '/assets/partners/hackclub.avif',
+    href: 'https://hackclub.com/',
   },
 ];
 
 function PartnerBubble({ partner, index }) {
-  const className = `partner-bubble${partner ? ' partner-bubble--branded' : ''}`;
+  const className = `partner-bubble${partner ? ' partner-bubble--branded' : ''}${
+    partner?.name === 'Next Generation Hacks' ? ' partner-bubble--ngnhacks' : ''
+  }`;
   const ariaLabel = partner?.href
     ? `Visit ${partner.name} website`
     : partner?.name ?? `Partner ${index + 1} placeholder`;
@@ -115,7 +128,7 @@ function SponsorBubble({ sponsor, featured = false }) {
       <img
         src={sponsor.logo}
         alt={sponsor.name}
-        className="sponsor-logo"
+        className={`sponsor-logo${sponsor.name === 'McMaster University' ? ' sponsor-logo--mcmaster' : ''}`}
       />
   );
 

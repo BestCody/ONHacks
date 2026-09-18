@@ -737,7 +737,9 @@
     border: 1px solid rgba(255, 255, 255, 0.28);
     border-radius: 999px;
     overflow: hidden;
-    background: linear-gradient(180deg, #4a626b 0%, #354e58 100%);
+    background: rgba(255, 255, 255, 0.28);
+    backdrop-filter: blur(18px) saturate(145%);
+    -webkit-backdrop-filter: blur(18px) saturate(145%);
     contain: paint;
   }
 
@@ -1623,7 +1625,7 @@
 
   .partners-bubble-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: clamp(1rem, 3vw, 2.5rem);
     width: min(100%, 48rem);
     margin-top: clamp(3rem, 5vw, 4rem);
@@ -1647,10 +1649,14 @@
     transition: transform 180ms ease;
   }
 
-  .partner-bubble--branded {
-    overflow: hidden;
-    background: #1e1eb4;
-  }
+.partner-bubble--branded {
+  overflow: hidden;
+  background: #fff;
+}
+
+.partner-bubble--ngnhacks {
+  background: #1e1eb4;
+}
 
   .partner-logo {
     display: block;
@@ -1690,11 +1696,16 @@
     height: min(82%, 12rem);
   }
 
-  .sponsors-supporting-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: clamp(1rem, 3vw, 2.5rem);
+  .sponsor-bubble--featured .sponsor-logo--mcmaster {
+    width: min(92%, 30rem);
+    height: min(92%, 14rem);
   }
+
+.sponsors-supporting-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1rem, 3vw, 2.5rem);
+}
 
   .sponsor-bubble--small {
     height: clamp(7rem, 11vw, 9rem);
@@ -1844,7 +1855,7 @@
     }
 
     .sponsors-supporting-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 1.25rem;
     }
 
