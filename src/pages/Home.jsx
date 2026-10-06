@@ -31,19 +31,19 @@ const SPONSORS = [
     name: 'Candor Circuit Boards',
     logo: '/assets/sponsors/logo-fc.png',
     href: 'https://www.candorind.com/',
-    featured: true,
+    featured: false,
   },
   {
     name: 'Tin Computer',
     logo: '/assets/sponsors/tincomputer.png',
     href: 'https://tin.computer/',
-    featured: true,
+    featured: false,
   },
   {
     name: 'Presage Technologies',
     logo: '/assets/sponsors/PRESAGE_LOGO_CLEAR_BG_LG_BLACK_LTRS_83953b321a.png',
     href: 'https://presagetech.com/',
-    featured: true,
+    featured: false,
   },
   {
     name: 'PCBWay',
@@ -63,12 +63,27 @@ const SPONSORS = [
     href: 'https://gradium.ai/',
     featured: false,
   },
-      {
-        name: 'McMaster University',
-        logo: '/assets/sponsors/mcmaster-logo-2024-col.jpg',
-        href: 'https://www.mcmaster.ca/',
-        featured: true,
-      },
+  {
+    name: 'McMaster University',
+    logo: '/assets/sponsors/mcmaster-logo-2024-col.jpg',
+    href: 'https://www.mcmaster.ca/',
+    featured: false,
+  },
+  {
+    name: 'Simantic',
+    logo: '/assets/sponsors/Simantic.png',
+    featured: false,
+  },
+  {
+    name: 'Stratford School of Interaction Design and Business',
+    logo: '/assets/sponsors/Stratford Design School.jpeg',
+    featured: false,
+  },
+  {
+    name: 'Unified Electricians',
+    logo: '/assets/sponsors/Unified Electricians.png',
+    featured: true,
+  },
 ];
 
 const PARTNERS = [
