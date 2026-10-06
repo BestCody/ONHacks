@@ -1692,6 +1692,12 @@
     background: #000;
   }
 
+  .sponsor-bubble--simantic .sponsor-logo,
+  .sponsor-bubble--unified .sponsor-logo {
+    filter: contrast(3.5);
+    mix-blend-mode: normal;
+  }
+
   .sponsor-bubble--featured {
     height: clamp(12rem, 18vw, 16rem);
   }
