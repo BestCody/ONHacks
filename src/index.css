@@ -1687,6 +1687,11 @@
     text-decoration: none;
   }
 
+  .sponsor-bubble--simantic,
+  .sponsor-bubble--unified {
+    background: #000;
+  }
+
   .sponsor-bubble--featured {
     height: clamp(12rem, 18vw, 16rem);
   }

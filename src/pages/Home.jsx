@@ -72,16 +72,19 @@ const SPONSORS = [
   {
     name: 'Simantic',
     logo: '/assets/sponsors/Simantic.png',
+    href: 'https://simantic.com/',
     featured: false,
   },
   {
     name: 'Stratford School of Interaction Design and Business',
     logo: '/assets/sponsors/Stratford Design School.jpeg',
+    href: 'https://uwaterloo.ca/stratford-school-of-interaction-design-and-business/',
     featured: false,
   },
   {
     name: 'Unified Electricians',
     logo: '/assets/sponsors/Unified Electricians.png',
+    href: 'https://www.ut.ca/',
     featured: true,
   },
 ];
@@ -138,7 +141,12 @@ function PartnerBubble({ partner, index }) {
 }
 
 function SponsorBubble({ sponsor, featured = false }) {
-  const bubbleClassName = `partner-bubble sponsor-bubble${featured ? ' sponsor-bubble--featured' : ' sponsor-bubble--small'}`;
+  const sponsorThemeClass = sponsor.name === 'Simantic'
+    ? ' sponsor-bubble--simantic'
+    : sponsor.name === 'Unified Electricians'
+      ? ' sponsor-bubble--unified'
+      : '';
+  const bubbleClassName = `partner-bubble sponsor-bubble${featured ? ' sponsor-bubble--featured' : ' sponsor-bubble--small'}${sponsorThemeClass}`;
   const bubbleContent = (
       <img
         src={sponsor.logo}
