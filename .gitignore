@@ -10,3 +10,4 @@ CLAUDE.md
 .playwright-mcp/
 beach-section-local*.png
 sand-texture-current.png
+.tmp-tailscale-assets/

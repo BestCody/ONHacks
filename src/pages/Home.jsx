@@ -87,6 +87,12 @@ const SPONSORS = [
     href: 'https://www.ut.ca/',
     featured: true,
   },
+  {
+    name: 'Tailscale',
+    logo: '/assets/sponsors/tailscale.svg',
+    href: 'https://tailscale.com/',
+    featured: true,
+  },
 ];
 
 const PARTNERS = [

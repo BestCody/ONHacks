@@ -7,6 +7,7 @@ import Home from '@/pages/Home';
 import Apply from '@/pages/Apply';
 import AuthPage from '@/pages/AuthPage';
 import Dashboard from '@/pages/Dashboard';
+import LegalPage from '@/pages/LegalPage';
 
 const NotFound = () => (
   <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
@@ -26,6 +27,9 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/apply" element={<Apply />} />
+          <Route path="/privacy" element={<LegalPage document="privacy" />} />
+          <Route path="/participant-terms" element={<LegalPage document="terms" />} />
+          <Route path="/code-of-conduct" element={<LegalPage document="conduct" />} />
           <Route path="/signin" element={<AuthPage mode="signin" />} />
           <Route path="/signup" element={<AuthPage mode="signup" />} />
           <Route path="/login" element={<Navigate to="/signin" replace />} />

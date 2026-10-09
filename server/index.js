@@ -178,12 +178,22 @@ const eventApplicationTable = `
     supplies BOOLEAN NOT NULL,
     heard_about TEXT NOT NULL,
     email TEXT NOT NULL,
+    privacy_notice_accepted_at TIMESTAMPTZ,
+    participant_terms_accepted_at TIMESTAMPTZ,
+    code_of_conduct_accepted_at TIMESTAMPTZ,
     status TEXT NOT NULL DEFAULT 'received',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
   CREATE INDEX IF NOT EXISTS event_applications_user_id_idx ON event_applications(user_id);
   CREATE INDEX IF NOT EXISTS event_applications_email_idx ON event_applications(email);
+`;
+
+const eventApplicationConsentMigration = `
+  ALTER TABLE event_applications
+    ADD COLUMN IF NOT EXISTS privacy_notice_accepted_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS participant_terms_accepted_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS code_of_conduct_accepted_at TIMESTAMPTZ;
 `;
 
 function clean(value) {
@@ -389,6 +399,9 @@ function validateEventApplication(body = {}) {
     supplies: input.supplies === true || input.supplies === 'YES',
     heardAbout: clean(input.heardAbout),
     email: clean(input.email).toLowerCase(),
+    privacyNoticeAccepted: input.privacyNoticeAccepted === true,
+    participantTermsAccepted: input.participantTermsAccepted === true,
+    codeOfConductAccepted: input.codeOfConductAccepted === true,
   };
 
   const errors = {};
@@ -412,6 +425,15 @@ function validateEventApplication(body = {}) {
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(application.email) || application.email.length > 254) {
     errors.email = 'Enter a valid email address.';
+  }
+  if (!application.privacyNoticeAccepted) {
+    errors.privacyNoticeAccepted = 'Review and accept the Privacy Notice.';
+  }
+  if (!application.participantTermsAccepted) {
+    errors.participantTermsAccepted = 'Review and accept the Participant Terms.';
+  }
+  if (!application.codeOfConductAccepted) {
+    errors.codeOfConductAccepted = 'Review and accept the Code of Conduct.';
   }
 
   return { application, errors };
@@ -612,8 +634,9 @@ app.post('/api/event-applications', applicationIpRateLimit, applicationEmailRate
     const user = await findAuthenticatedUser(request);
     const result = await pool.query(
       `INSERT INTO event_applications
-        (user_id, full_name, team, github, high_school, supplies, heard_about, email)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        (user_id, full_name, team, github, high_school, supplies, heard_about, email,
+         privacy_notice_accepted_at, participant_terms_accepted_at, code_of_conduct_accepted_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), NOW())
        RETURNING id, full_name, team, github, status, created_at`,
       [
         user?.id || null,
@@ -703,6 +726,7 @@ async function start() {
   if (pool) {
     await pool.query(authTables);
     await pool.query(eventApplicationTable);
+    await pool.query(eventApplicationConsentMigration);
     await pool.query(applicationTable);
     await pool.query('DELETE FROM sessions WHERE expires_at <= NOW()');
   } else {

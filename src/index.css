@@ -790,7 +790,7 @@
   .site-nav-links button,
   .site-nav-register,
   .site-nav-instagram {
-    color: rgba(255, 255, 255, 0.92);
+    color: #000000;
     font-family: 'JetBrains Mono', monospace;
     font-size: clamp(0.62rem, 0.8vw, 0.8rem);
     line-height: 1;
@@ -846,7 +846,7 @@
     width: 2.5rem;
     height: 2.5rem;
     place-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(0, 0, 0, 0.3);
     border-radius: 50%;
     transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
   }

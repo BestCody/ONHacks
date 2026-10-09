@@ -14,3 +14,4 @@
 - `coral-fan-red.png` — [Coral Fan Red](https://freegamesprites.com/en/assets/coral-fan-red), licensed CC0.
 - `underwater-reef.webp` — [Underwater Reef](https://freegamesprites.com/en/assets/underwater-reef), licensed CC0.
 - `sonar-pulse.png` — [Sonar Pulse Ring](https://freegamesprites.com/en/assets/sonar-pulse-ring), licensed CC0.
+- `sponsors/tailscale.svg` — Tailscale logo sourced from the [official Tailscale repository](https://github.com/tailscale/tailscale/blob/main/client/web/src/assets/icons/tailscale-logo.svg). Tailscale and its logo are trademarks of Tailscale Inc.

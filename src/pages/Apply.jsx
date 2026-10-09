@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,9 @@ export default function Apply() {
     supplies: false,
     heardAbout: '',
     email: '',
+    privacyNoticeAccepted: false,
+    participantTermsAccepted: false,
+    codeOfConductAccepted: false,
   });
 
   const [loading, setLoading] = useState(false);
@@ -42,6 +45,13 @@ export default function Apply() {
     setForm((previous) => ({
       ...previous,
       [field]: event.target.value,
+    }));
+  };
+
+  const setCheckboxField = (field) => (event) => {
+    setForm((previous) => ({
+      ...previous,
+      [field]: event.target.checked,
     }));
   };
 
@@ -87,6 +97,11 @@ export default function Apply() {
       return;
     }
 
+    if (!form.privacyNoticeAccepted || !form.participantTermsAccepted || !form.codeOfConductAccepted) {
+      setError('Please review and accept the Privacy Notice, Participant Terms, and Code of Conduct.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -104,6 +119,9 @@ export default function Apply() {
           supplies: form.supplies,
           heardAbout: form.heardAbout.trim(),
           email: form.email.trim(),
+          privacyNoticeAccepted: form.privacyNoticeAccepted,
+          participantTermsAccepted: form.participantTermsAccepted,
+          codeOfConductAccepted: form.codeOfConductAccepted,
         }),
       });
 
@@ -379,6 +397,83 @@ export default function Apply() {
                 required
                 />
             </div>
+
+            {/* Agreements */}
+
+            <fieldset className="space-y-3 rounded-xl border border-black/10 bg-slate-50 p-4">
+              <legend className="px-1 font-semibold text-[#0A1A2A]">
+                Before you submit
+              </legend>
+
+              <div className="flex items-start gap-3 text-sm leading-6 text-black/70">
+                <input
+                  id="privacyNoticeAccepted"
+                  type="checkbox"
+                  checked={form.privacyNoticeAccepted}
+                  onChange={setCheckboxField('privacyNoticeAccepted')}
+                  className="mt-1 h-4 w-4 shrink-0 accent-blue-600"
+                  required
+                />
+                <p>
+                  <label htmlFor="privacyNoticeAccepted">I have read the </label>
+                  <Link
+                    to="/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-[#0A1A2A] underline underline-offset-2 hover:text-[#FF2E2E]"
+                  >
+                    Privacy Notice
+                  </Link>
+                  <span> and understand how my information will be used.</span>
+                </p>
+              </div>
+
+              <div className="flex items-start gap-3 text-sm leading-6 text-black/70">
+                <input
+                  id="participantTermsAccepted"
+                  type="checkbox"
+                  checked={form.participantTermsAccepted}
+                  onChange={setCheckboxField('participantTermsAccepted')}
+                  className="mt-1 h-4 w-4 shrink-0 accent-blue-600"
+                  required
+                />
+                <p>
+                  <label htmlFor="participantTermsAccepted">I agree to the </label>
+                  <Link
+                    to="/participant-terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-[#0A1A2A] underline underline-offset-2 hover:text-[#FF2E2E]"
+                  >
+                    Participant Terms
+                  </Link>
+                  <span>.</span>
+                </p>
+              </div>
+
+              <div className="flex items-start gap-3 text-sm leading-6 text-black/70">
+                <input
+                  id="codeOfConductAccepted"
+                  type="checkbox"
+                  checked={form.codeOfConductAccepted}
+                  onChange={setCheckboxField('codeOfConductAccepted')}
+                  className="mt-1 h-4 w-4 shrink-0 accent-blue-600"
+                  required
+                />
+                <p>
+                  <label htmlFor="codeOfConductAccepted">I have read and agree to the </label>
+                  <Link
+                    to="/code-of-conduct"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-[#0A1A2A] underline underline-offset-2 hover:text-[#FF2E2E]"
+                  >
+                    Code of Conduct
+                  </Link>
+                  <span>.</span>
+                </p>
+              </div>
+            </fieldset>
 
             {/* Submit */}
 
