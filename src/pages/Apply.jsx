@@ -21,7 +21,6 @@ export default function Apply() {
     highSchool: false,
     supplies: false,
     heardAbout: '',
-    email: '',
     privacyNoticeAccepted: false,
     participantTermsAccepted: false,
     codeOfConductAccepted: false,
@@ -37,7 +36,6 @@ export default function Apply() {
     setForm((previous) => ({
       ...previous,
       name: previous.name || user.name,
-      email: previous.email || user.email,
     }));
   }, [user]);
 
@@ -88,15 +86,6 @@ export default function Apply() {
       return;
     }
 
-    if (!form.heardAbout.trim()) {
-      setError('Please tell us how you heard about us.');
-      return;
-    }
-    if (!form.email.trim()) {
-      setError('Please enter your personal email.');
-      return;
-    }
-
     if (!form.privacyNoticeAccepted || !form.participantTermsAccepted || !form.codeOfConductAccepted) {
       setError('Please review and accept the Privacy Notice, Participant Terms, and Code of Conduct.');
       return;
@@ -118,7 +107,6 @@ export default function Apply() {
           highSchool: form.highSchool,
           supplies: form.supplies,
           heardAbout: form.heardAbout.trim(),
-          email: form.email.trim(),
           privacyNoticeAccepted: form.privacyNoticeAccepted,
           participantTermsAccepted: form.participantTermsAccepted,
           codeOfConductAccepted: form.codeOfConductAccepted,
@@ -153,12 +141,11 @@ export default function Apply() {
       >
         <div className="max-w-md text-center bg-white rounded-2xl shadow-xl p-10">
           <h2 className="font-bubbly text-4xl text-[#FF2E2E] mb-3">
-            You're in!
+            Application received
           </h2>
 
           <p className="text-black/70 mb-8">
-            Thanks for filling the form :) We received your
-            registration. See you at the hackathon!
+            Thanks for applying. Your application was received and is being reviewed.
           </p>
 
           <Button
@@ -203,23 +190,9 @@ export default function Apply() {
             Tell us about you and get ready to build something awesome!
           </p>
 
-          {user ? (
-            <p className="mb-5 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
-              Signed in as {user.email}. This application will be saved to your account.
-            </p>
-          ) : (
-            <p className="mb-5 text-sm text-black/60">
-              Already have an account?{' '}
-              <button
-                type="button"
-                onClick={() => navigate('/signin?returnTo=%2Fapply')}
-                className="font-semibold text-[#0A1A2A] underline underline-offset-2 hover:text-[#FF2E2E]"
-              >
-                Sign in first
-              </button>
-              {' '}to prefill your details.
-            </p>
-          )}
+          <p className="mb-5 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
+            Signed in as {user.email}. This application will be saved to your account.
+          </p>
 
           {error && (
             <div className="mb-5 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
@@ -372,7 +345,7 @@ export default function Apply() {
 
             <div className="space-y-2">
               <Label htmlFor="heardAbout">
-                How did you hear about us? (say in short)
+                How did you hear about us? (optional)
               </Label>
 
               <Input
@@ -380,22 +353,19 @@ export default function Apply() {
                 value={form.heardAbout}
                 onChange={setField('heardAbout')}
                 placeholder="Instagram, my school, a friend..."
-                required
+                maxLength={500}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">
-                What is your email? (personal) *
-              </Label>
+              <Label htmlFor="email">Email for updates</Label>
 
               <Input
                 id="email"
                 type="email"
-                value={form.email}
-                onChange={setField('email')}
-                placeholder="ada@example.com"
-                required
-                />
+                value={user.email}
+                readOnly
+              />
+              <p className="text-xs text-black/50">We&apos;ll send application updates to your verified account email.</p>
             </div>
 
             {/* Agreements */}

@@ -27,6 +27,14 @@ export default function AuthPage({ mode }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const backgroundStyle = {
+    backgroundImage: `linear-gradient(rgba(5, 26, 45, 0.55), rgba(5, 26, 45, 0.55)), url(${BG})`,
+    backgroundRepeat: 'no-repeat',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundColor: '#163d6b',
+  };
 
   useEffect(() => {
     const googleError = new URLSearchParams(location.search).get('error');
@@ -64,9 +72,12 @@ export default function AuthPage({ mode }) {
           email: form.email,
           password: form.password,
         });
-      } else {
-        await signIn({ email: form.email, password: form.password });
+        setVerificationEmail(form.email.trim());
+        setForm((previous) => ({ ...previous, password: '', confirmPassword: '' }));
+        return;
       }
+
+      await signIn({ email: form.email, password: form.password });
       navigate(safeReturnTo(location.search), { replace: true });
     } catch (requestError) {
       setError(requestError.message);
@@ -78,16 +89,35 @@ export default function AuthPage({ mode }) {
   const switchPath = isSignUp ? '/signin' : '/signup';
   const switchLabel = isSignUp ? 'Sign in instead' : 'Create an account';
 
+  if (verificationEmail) {
+    return (
+      <main className="min-h-screen py-12 px-4 flex items-center" style={backgroundStyle}>
+        <section className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 md:p-10">
+          <p className="font-tech text-xs uppercase tracking-[0.25em] text-[#FF2E2E] mb-4">
+            ONHacks // Account
+          </p>
+          <h1 className="font-bubbly text-4xl text-[#0A1A2A] mb-3">Check your email</h1>
+          <p className="text-black/70 leading-relaxed">
+            We sent a verification link to <strong>{verificationEmail}</strong>. Open it and enter the password you chose to finish creating your account. The link expires in 24 hours.
+          </p>
+          <p className="text-sm text-black/60 mt-5">
+            Didn&apos;t receive it? Check your spam folder, then try signing in to request a fresh link.
+          </p>
+          <Link
+            to={`/signin${location.search}`}
+            className="mt-7 flex h-12 items-center justify-center rounded-md bg-[#FF2E2E] text-white font-bungee hover:bg-[#FF2E2E]/90"
+          >
+            Back to sign in
+          </Link>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main
       className="min-h-screen py-12 px-4 flex items-center"
-      style={{
-        backgroundImage: `linear-gradient(rgba(5, 26, 45, 0.55), rgba(5, 26, 45, 0.55)), url(${BG})`,
-        backgroundRepeat: 'no-repeat',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundColor: '#163d6b',
-      }}
+      style={backgroundStyle}
     >
       <div className="w-full max-w-md mx-auto">
         <button
@@ -124,12 +154,13 @@ export default function AuthPage({ mode }) {
                 href={`/api/auth/google/start?returnTo=${encodeURIComponent(safeReturnTo(location.search))}`}
                 className="w-full h-12 rounded-md border border-[#0A1A2A]/20 bg-white text-[#0A1A2A] hover:bg-[#0A1A2A]/5 transition-colors flex items-center justify-center gap-3 text-sm font-semibold"
               >
-                <span
-                  aria-hidden="true"
-                  className="w-6 h-6 rounded-full border border-[#0A1A2A]/20 flex items-center justify-center font-bold text-[#4285F4]"
-                >
-                  G
-                </span>
+                <img
+                  src="/assets/google-g-logo.png"
+                  alt=""
+                  width="20"
+                  height="20"
+                  className="h-5 w-5 object-contain"
+                />
                 Continue with Google
               </a>
 

@@ -1,5 +1,7 @@
 # Asset attribution
 
+- `google-g-logo.png` - [Google "G" logo](https://developers.google.com/identity/branding-guidelines) from the official Sign in with Google branding guidelines. Google and its logo are trademarks of Google LLC.
+
 - `beach-sand-texture.png` - [Sand Texture](https://opengameart.org/content/sand-texture-1) by Bing Soy, licensed CC0.
 - `seamless-cartoon-sand-texture-vector-great-picture-background-illustrations-packaging_802913-58.avif` - [Seamless cartoon sand texture great](https://www.vectorstock.com/royalty-free-vector/seamless-cartoon-sand-texture-great-vector-45991207) by KateSuDesign, VectorStock. Verify the source license before production use.
 

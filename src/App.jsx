@@ -6,6 +6,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import Home from '@/pages/Home';
 import Apply from '@/pages/Apply';
 import AuthPage from '@/pages/AuthPage';
+import VerifyEmail from '@/pages/VerifyEmail';
 import Dashboard from '@/pages/Dashboard';
 import LegalPage from '@/pages/LegalPage';
 
@@ -26,12 +27,13 @@ function App() {
         <ScrollToTop />
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/apply" element={<Apply />} />
+          <Route path="/apply" element={<ProtectedRoute><Apply /></ProtectedRoute>} />
           <Route path="/privacy" element={<LegalPage document="privacy" />} />
           <Route path="/participant-terms" element={<LegalPage document="terms" />} />
           <Route path="/code-of-conduct" element={<LegalPage document="conduct" />} />
           <Route path="/signin" element={<AuthPage mode="signin" />} />
           <Route path="/signup" element={<AuthPage mode="signup" />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/login" element={<Navigate to="/signin" replace />} />
           <Route path="/register" element={<Navigate to="/signup" replace />} />
           <Route

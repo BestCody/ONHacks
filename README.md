@@ -51,13 +51,19 @@ For registration and authentication requests, start `npm start` in a second
 terminal as described above. The Vite preview remains the page you display in
 VS Code.
 
-The server creates the `applications`, `event_applications`, `users`, and `sessions` tables
-automatically on startup. Accounts use salted scrypt password hashes and
-HTTP-only database-backed session cookies.
+The server creates the `event_applications`, `users`, `sessions`, and
+`email_verification_tokens` tables automatically on startup. The unused legacy
+`applications` table is left intact if it already exists, but its public write
+endpoint is closed. Accounts use salted scrypt password hashes and HTTP-only
+database-backed session cookies.
 
 Authentication routes are `/signup`, `/signin`, and the protected `/dashboard`.
 The legacy `/register` and `/login` paths redirect to the corresponding auth
-pages.
+pages. Email/password accounts must verify their email before sign-in; the
+verification link also requires the password chosen at sign-up. Existing
+password-only accounts will need to verify on their next sign-in. Existing
+Google-linked accounts retain Google access, but any legacy password on those
+accounts is revoked and their sessions are cleared during migration.
 
 ### Security baseline
 
@@ -72,8 +78,10 @@ pages.
   replace the default limiter store with a shared store.
 - Request bodies and registration fields are size-limited and validated before
   parameterized database queries are executed.
+- Applications require a verified account; their email is taken from the
+  account, never from the request body.
 
-### Optional Google sign-in and application email
+### Google sign-in and email delivery
 
 The auth page includes **Continue with Google**. To enable it, create a Google
 OAuth 2.0 **Web application** client and add these redirect URIs:
@@ -86,19 +94,20 @@ https://onhacks.ca/api/auth/google/callback
 Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and
 `GOOGLE_OAUTH_REDIRECT_URI` in the environment where the server runs. Google
 accounts are linked to an existing account when the verified email matches.
+If an older password account has not verified that address, linking revokes
+its password and sessions first.
 
-Participant application receipts use the Resend HTTPS API, which works on
-Render's Free plan. Verify `onhacks.ca` as a sending domain in Resend, then set
-`RESEND_API_KEY` and `EMAIL_FROM=ONHacks <hello@onhacks.ca>`. No organizer
-email notifications are sent. If the API key or sender address is not
-configured, applications still save, but receipts are skipped with a startup
-warning.
+Account verification and participant application receipts use the Resend HTTPS
+API, which works on Render's Free plan. Verify `onhacks.ca` as a sending domain
+in Resend, then set `RESEND_API_KEY`, `EMAIL_FROM=ONHacks <hello@onhacks.ca>`,
+and `SITE_ORIGIN=https://onhacks.ca`. No organizer email notifications are
+sent. Email/password signup is unavailable if verification email is not
+configured. Applications still save if receipt delivery fails.
 
 ## Deploy on Render
 
 Use a Render **Web Service**, not a Static Site. The Express server serves the
-compiled frontend and handles `/api/applications`.
-It also handles account sessions and independent event applications through
+compiled frontend. It handles account sessions and event applications through
 `/api/auth/*` and `/api/event-applications`.
 
 Use these settings:
@@ -106,14 +115,16 @@ Use these settings:
 | Setting | Value |
 | --- | --- |
 | Runtime | Node |
-| Build command | `npm ci && npm run build` |
+| Build command | `npm ci --include=dev && npm run build && npm prune --omit=dev` |
 | Start command | `npm start` |
 | Health check path | `/api/health` |
 
 Create a Render PostgreSQL database in the same region as the web service,
 then add its **Internal Database URL** to the web service as `DATABASE_URL`.
-Also set `NODE_ENV=production`. The server creates the table on the first
-successful boot.
+The private internal connection does not require the old TLS certificate-
+verification bypass. For an external database URL, use a certificate-verified
+TLS connection (`sslmode=verify-full`) instead. Also set `NODE_ENV=production`.
+The server creates or migrates its tables on the first successful boot.
 
 `render.yaml` contains the web-service configuration. If you use Render's
 Blueprint flow, connect the repository and provide the PostgreSQL connection

@@ -63,6 +63,14 @@ export function AuthProvider({ children }) {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
+    return data;
+  };
+
+  const verifyEmail = async (token, password) => {
+    const data = await authRequest('/api/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    });
     setUser(data.user);
     return data.user;
   };
@@ -73,7 +81,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, googleEnabled, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, googleEnabled, loading, signIn, signUp, verifyEmail, signOut }}>
       {children}
     </AuthContext.Provider>
   );

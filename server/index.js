@@ -36,10 +36,12 @@ const googleStateCookieName = isProduction ? '__Host-onhacks_google_state' : 'on
 const googleReturnCookieName = isProduction ? '__Host-onhacks_google_return' : 'onhacks_google_return';
 const sessionDurationSeconds = 60 * 60 * 24 * 30;
 const googleStateDurationSeconds = 10 * 60;
+const verificationDurationSeconds = 60 * 60 * 24;
 const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim() || '';
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() || '';
 const googleOAuthRedirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI?.trim() || '';
 const googleOAuthOrigin = googleOAuthRedirectUri ? new URL(googleOAuthRedirectUri).origin : '';
+const siteOrigin = process.env.SITE_ORIGIN?.trim() || googleOAuthOrigin;
 const googleOAuthClient = googleClientId && googleClientSecret && googleOAuthRedirectUri
   ? new OAuth2Client({
       clientId: googleClientId,
@@ -60,9 +62,6 @@ const passwordHashOptions = {
 const pool = databaseUrl
   ? new Pool({
       connectionString: databaseUrl,
-      ssl: isProduction
-        ? { rejectUnauthorized: false }
-        : undefined,
     })
   : null;
 
@@ -131,10 +130,18 @@ const applicationIpRateLimit = rateLimit({
 const applicationEmailRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 3,
-  keyGenerator: normalizeEmailKey,
+  keyGenerator: (request) => request.user.email,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   handler: rateLimitResponse('Too many application submissions for this email. Please try again later.'),
+});
+
+const verificationIpRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: rateLimitResponse('Too many verification requests. Please try again later.'),
 });
 
 const stateChangingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -145,26 +152,6 @@ const localDevelopmentOrigins = new Set([
   'http://127.0.0.1:4173',
 ]);
 
-const allowedTracks = new Set([
-  'AI / ML',
-  'Web3 / Blockchain',
-  'Developer Tools',
-  'Security & Privacy',
-]);
-
-const applicationTable = `
-  CREATE TABLE IF NOT EXISTS applications (
-    id BIGSERIAL PRIMARY KEY,
-    full_name TEXT NOT NULL,
-    email TEXT NOT NULL,
-    team_name TEXT,
-    track TEXT NOT NULL,
-    project_idea TEXT NOT NULL,
-    github_link TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )
-`;
-
 const authTables = `
   CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
@@ -172,6 +159,7 @@ const authTables = `
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT,
     google_subject TEXT,
+    email_verified_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
@@ -182,13 +170,23 @@ const authTables = `
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
+  CREATE TABLE IF NOT EXISTS email_verification_tokens (
+    token_hash TEXT PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
   CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
   CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at);
+  CREATE UNIQUE INDEX IF NOT EXISTS email_verification_tokens_user_id_idx
+    ON email_verification_tokens(user_id);
 `;
 
 const authMigration = `
   ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS google_subject TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
   CREATE UNIQUE INDEX IF NOT EXISTS users_google_subject_idx
     ON users(google_subject)
     WHERE google_subject IS NOT NULL;
@@ -203,7 +201,7 @@ const eventApplicationTable = `
     github TEXT NOT NULL,
     high_school BOOLEAN NOT NULL,
     supplies BOOLEAN NOT NULL,
-    heard_about TEXT NOT NULL,
+    heard_about TEXT,
     email TEXT NOT NULL,
     privacy_notice_accepted_at TIMESTAMPTZ,
     participant_terms_accepted_at TIMESTAMPTZ,
@@ -221,6 +219,10 @@ const eventApplicationConsentMigration = `
     ADD COLUMN IF NOT EXISTS privacy_notice_accepted_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS participant_terms_accepted_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS code_of_conduct_accepted_at TIMESTAMPTZ;
+`;
+
+const eventApplicationHeardAboutMigration = `
+  ALTER TABLE event_applications ALTER COLUMN heard_about DROP NOT NULL;
 `;
 
 function clean(value) {
@@ -358,28 +360,51 @@ async function findOrCreateGoogleUser(profile) {
   const bySubject = await pool.query(
     `SELECT id, full_name, email, created_at
      FROM users
-     WHERE google_subject = $1`,
+     WHERE google_subject = $1 AND email_verified_at IS NOT NULL`,
     [profile.googleSubject],
   );
 
   if (bySubject.rows[0]) return bySubject.rows[0];
 
-  const result = await pool.query(
-    `INSERT INTO users (full_name, email, password_hash, google_subject)
-     VALUES ($1, $2, NULL, $3)
-     ON CONFLICT (email) DO UPDATE
-       SET google_subject = EXCLUDED.google_subject
-       WHERE users.google_subject IS NULL
-          OR users.google_subject = EXCLUDED.google_subject
-     RETURNING id, full_name, email, created_at`,
-    [profile.name, profile.email, profile.googleSubject],
-  );
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `INSERT INTO users (full_name, email, password_hash, google_subject, email_verified_at)
+       VALUES ($1, $2, NULL, $3, NOW())
+       ON CONFLICT (email) DO UPDATE
+         SET full_name = CASE
+               WHEN users.email_verified_at IS NULL THEN EXCLUDED.full_name
+               ELSE users.full_name
+             END,
+             google_subject = EXCLUDED.google_subject,
+             email_verified_at = NOW(),
+             password_hash = CASE
+               WHEN users.email_verified_at IS NULL THEN NULL
+               ELSE users.password_hash
+             END
+         WHERE users.google_subject IS NULL
+            OR users.google_subject = EXCLUDED.google_subject
+       RETURNING id, full_name, email, created_at`,
+      [profile.name, profile.email, profile.googleSubject],
+    );
 
-  if (!result.rows[0]) {
-    throw new Error('This email is already linked to another Google account.');
+    if (!result.rows[0]) {
+      throw new Error('This email is already linked to another Google account.');
+    }
+
+    // A verified Google identity may reclaim an unverified email, but no prior
+    // password or session can remain valid after that account is linked.
+    await client.query('DELETE FROM sessions WHERE user_id = $1', [result.rows[0].id]);
+    await client.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [result.rows[0].id]);
+    await client.query('COMMIT');
+    return result.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
-
-  return result.rows[0];
 }
 
 async function getGoogleProfile(code) {
@@ -416,7 +441,8 @@ async function findAuthenticatedUser(request) {
     `SELECT u.id, u.full_name, u.email, u.created_at
      FROM sessions s
      INNER JOIN users u ON u.id = s.user_id
-     WHERE s.token_hash = $1 AND s.expires_at > NOW()`,
+     WHERE s.token_hash = $1 AND s.expires_at > NOW()
+       AND u.email_verified_at IS NOT NULL`,
     [hashSessionToken(token)],
   );
 
@@ -436,6 +462,75 @@ async function createSession(userId, response) {
   setSessionCookie(response, token);
 }
 
+async function sendVerificationEmail(user) {
+  if (!emailEnabled || !siteOrigin) {
+    throw new Error('Email verification is not configured.');
+  }
+
+  const token = randomBytes(32).toString('hex');
+  const tokenHash = hashSessionToken(token);
+  const expiresAt = new Date(Date.now() + verificationDurationSeconds * 1000);
+  await pool.query(
+    `INSERT INTO email_verification_tokens (token_hash, user_id, expires_at)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (user_id) DO UPDATE
+       SET token_hash = EXCLUDED.token_hash,
+           expires_at = EXCLUDED.expires_at,
+           created_at = NOW()`,
+    [tokenHash, user.id, expiresAt],
+  );
+
+  const verificationUrl = new URL('/verify-email', siteOrigin);
+  verificationUrl.hash = new URLSearchParams({ token }).toString();
+  const safeName = user.full_name.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[character]);
+
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: emailFrom,
+        to: user.email,
+        subject: 'Verify your ONHacks email',
+        text: [
+          `Hi ${user.full_name},`,
+          '',
+          'Confirm your email to finish creating your ONHacks account. Open the link below and enter the password you chose:',
+          verificationUrl.toString(),
+          '',
+          'This link expires in 24 hours. If you did not create this account, you can ignore this message.',
+          '',
+          'The ONHacks team',
+        ].join('\n'),
+        html: `<p>Hi ${safeName},</p><p>Confirm your email to finish creating your ONHacks account. Open the link below and enter the password you chose:</p><p><a href="${verificationUrl}">Verify email</a></p><p>This link expires in 24 hours. If you did not create this account, you can ignore this message.</p><p>The ONHacks team</p>`,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) {
+      throw new Error(`Verification email API returned HTTP ${response.status}.`);
+    }
+  } catch (error) {
+    await pool.query('DELETE FROM email_verification_tokens WHERE token_hash = $1', [tokenHash]);
+    throw error;
+  }
+}
+
+async function sendVerificationEmailIfNeeded(user) {
+  const recent = await pool.query(
+    `SELECT 1 FROM email_verification_tokens
+     WHERE user_id = $1 AND created_at > NOW() - INTERVAL '10 minutes'
+       AND expires_at > NOW()`,
+    [user.id],
+  );
+  if (recent.rows[0]) return;
+  await sendVerificationEmail(user);
+}
+
 async function requireAuth(request, response, next) {
   try {
     const user = await findAuthenticatedUser(request);
@@ -450,39 +545,6 @@ async function requireAuth(request, response, next) {
   }
 }
 
-function validateApplication(body = {}) {
-  const application = {
-    fullName: clean(body.full_name),
-    email: clean(body.email).toLowerCase(),
-    teamName: clean(body.team_name),
-    track: clean(body.track),
-    projectIdea: clean(body.project_idea),
-    githubLink: clean(body.github_link),
-  };
-
-  const errors = {};
-  if (!application.fullName || application.fullName.length > 120) {
-    errors.full_name = 'Enter a name up to 120 characters.';
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(application.email) || application.email.length > 254) {
-    errors.email = 'Enter a valid email address.';
-  }
-  if (application.teamName.length > 120) {
-    errors.team_name = 'Team name must be 120 characters or fewer.';
-  }
-  if (!allowedTracks.has(application.track)) {
-    errors.track = 'Choose one of the available tracks.';
-  }
-  if (!application.projectIdea || application.projectIdea.length > 4000) {
-    errors.project_idea = 'Enter a project idea up to 4,000 characters.';
-  }
-  if (application.githubLink.length > 500) {
-    errors.github_link = 'Link must be 500 characters or fewer.';
-  }
-
-  return { application, errors };
-}
-
 function validateEventApplication(body = {}) {
   const input = body && typeof body === 'object' ? body : {};
   const application = {
@@ -491,7 +553,7 @@ function validateEventApplication(body = {}) {
     github: clean(input.github),
     highSchool: input.highSchool === true || input.highSchool === 'YES',
     supplies: input.supplies === true || input.supplies === 'YES',
-    heardAbout: clean(input.heardAbout),
+    heardAbout: clean(input.heardAbout) || null,
     email: clean(input.email).toLowerCase(),
     privacyNoticeAccepted: input.privacyNoticeAccepted === true,
     participantTermsAccepted: input.participantTermsAccepted === true,
@@ -514,8 +576,8 @@ function validateEventApplication(body = {}) {
   if (!application.supplies) {
     errors.supplies = 'You must confirm that you are bringing your supplies.';
   }
-  if (!application.heardAbout || application.heardAbout.length > 500) {
-    errors.heardAbout = 'Tell us how you heard about ONHacks.';
+  if (application.heardAbout && application.heardAbout.length > 500) {
+    errors.heardAbout = 'Keep your answer to 500 characters or fewer.';
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(application.email) || application.email.length > 254) {
     errors.email = 'Enter a valid email address.';
@@ -714,6 +776,10 @@ app.post('/api/auth/signup', signUpIpRateLimit, signUpEmailRateLimit, async (req
     });
   }
 
+  if (!emailEnabled || !siteOrigin) {
+    return response.status(503).json({ error: 'Account verification is temporarily unavailable. Please try again later.' });
+  }
+
   const { name, email, password, errors } = validateAuthInput(request.body, {
     requireName: true,
   });
@@ -721,24 +787,44 @@ app.post('/api/auth/signup', signUpIpRateLimit, signUpEmailRateLimit, async (req
     return response.status(400).json({ error: 'Please correct the highlighted fields.', errors });
   }
 
+  let userRecord;
+  const client = await pool.connect();
   try {
     const passwordHash = await hashPassword(password);
-    const result = await pool.query(
+    await client.query('BEGIN');
+    const result = await client.query(
       `INSERT INTO users (full_name, email, password_hash)
        VALUES ($1, $2, $3)
+       ON CONFLICT (email) DO UPDATE
+         SET full_name = EXCLUDED.full_name,
+             password_hash = EXCLUDED.password_hash
+         WHERE users.email_verified_at IS NULL AND users.google_subject IS NULL
        RETURNING id, full_name, email, created_at`,
       [name, email, passwordHash],
     );
-
-    await createSession(result.rows[0].id, response);
-    return response.status(201).json({ user: publicUser(result.rows[0]) });
-  } catch (error) {
-    if (error?.code === '23505') {
-      return response.status(409).json({
-        error: 'An account with that email already exists. Try signing in instead.',
-      });
+    userRecord = result.rows[0];
+    if (!userRecord) {
+      await client.query('ROLLBACK');
+      return response.status(409).json({ error: 'An account with that email already exists. Try signing in instead.' });
     }
+    // A fresh attempt may reclaim an unverified address, but old links and
+    // sessions must not gain access once the new owner verifies it.
+    await client.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userRecord.id]);
+    await client.query('DELETE FROM sessions WHERE user_id = $1', [userRecord.id]);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
     return next(error);
+  } finally {
+    client.release();
+  }
+
+  try {
+    await sendVerificationEmail(userRecord);
+    return response.status(202).json({ verificationRequired: true, email });
+  } catch (error) {
+    console.error('Verification email delivery failed:', error);
+    return response.status(503).json({ error: 'Your account was created, but we could not send the verification email. Sign in to try again.' });
   }
 });
 
@@ -756,7 +842,7 @@ app.post('/api/auth/signin', signInIpRateLimit, signInEmailRateLimit, async (req
 
   try {
     const result = await pool.query(
-      `SELECT id, full_name, email, password_hash, created_at
+      `SELECT id, full_name, email, password_hash, email_verified_at, created_at
        FROM users
        WHERE email = $1`,
       [email],
@@ -767,10 +853,66 @@ app.post('/api/auth/signin', signInIpRateLimit, signInEmailRateLimit, async (req
       return response.status(401).json({ error: 'Email or password is incorrect.' });
     }
 
+    if (!userRecord.email_verified_at) {
+      try {
+        await sendVerificationEmailIfNeeded(userRecord);
+      } catch (error) {
+        console.error('Verification email delivery failed:', error);
+        return response.status(503).json({ error: 'We could not send your verification email right now. Please try again later.' });
+      }
+      return response.status(403).json({
+        error: 'Please verify your email before signing in. Check your inbox for the verification link.',
+        code: 'email_verification_required',
+      });
+    }
+
     await createSession(userRecord.id, response);
     return response.json({ user: publicUser(userRecord) });
   } catch (error) {
     return next(error);
+  }
+});
+
+app.post('/api/auth/verify-email', verificationIpRateLimit, async (request, response, next) => {
+  if (!pool) {
+    return response.status(503).json({ error: 'Verification is temporarily unavailable.' });
+  }
+
+  const token = clean(request.body?.token);
+  const password = typeof request.body?.password === 'string' ? request.body.password : '';
+  if (!/^[a-f0-9]{64}$/.test(token) || password.length < 8 || password.length > 128) {
+    return response.status(400).json({ error: 'Invalid or expired verification link or password.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `SELECT u.id, u.full_name, u.email, u.password_hash, u.created_at
+       FROM email_verification_tokens t
+       INNER JOIN users u ON u.id = t.user_id
+       WHERE t.token_hash = $1 AND t.expires_at > NOW()
+         AND u.email_verified_at IS NULL
+       FOR UPDATE OF t, u`,
+      [hashSessionToken(token)],
+    );
+    const userRecord = result.rows[0];
+    if (!userRecord || !(await verifyPassword(password, userRecord.password_hash))) {
+      await client.query('ROLLBACK');
+      return response.status(400).json({ error: 'Invalid or expired verification link or password.' });
+    }
+
+    await client.query('UPDATE users SET email_verified_at = NOW() WHERE id = $1', [userRecord.id]);
+    await client.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userRecord.id]);
+    await client.query('DELETE FROM sessions WHERE user_id = $1', [userRecord.id]);
+    await client.query('COMMIT');
+    await createSession(userRecord.id, response);
+    return response.json({ user: publicUser(userRecord) });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    return next(error);
+  } finally {
+    client.release();
   }
 });
 
@@ -805,20 +947,22 @@ app.get('/api/event-applications/me', requireAuth, async (request, response, nex
   }
 });
 
-app.post('/api/event-applications', applicationIpRateLimit, applicationEmailRateLimit, async (request, response, next) => {
+app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applicationEmailRateLimit, async (request, response, next) => {
   if (!pool) {
     return response.status(503).json({
       error: 'Applications are temporarily unavailable. Please try again later.',
     });
   }
 
-  const { application, errors } = validateEventApplication(request.body);
+  const { application, errors } = validateEventApplication({
+    ...request.body,
+    email: request.user.email,
+  });
   if (Object.keys(errors).length > 0) {
     return response.status(400).json({ error: 'Please correct the highlighted fields.', errors });
   }
 
   try {
-    const user = await findAuthenticatedUser(request);
     const result = await pool.query(
       `INSERT INTO event_applications
         (user_id, full_name, team, github, high_school, supplies, heard_about, email,
@@ -826,7 +970,7 @@ app.post('/api/event-applications', applicationIpRateLimit, applicationEmailRate
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), NOW())
        RETURNING id, full_name, team, github, status, created_at`,
       [
-        user?.id || null,
+        request.user.id,
         application.fullName,
         application.team,
         application.github,
@@ -838,40 +982,6 @@ app.post('/api/event-applications', applicationIpRateLimit, applicationEmailRate
     );
 
     await sendApplicationReceipt(application);
-
-    return response.status(201).json({ application: result.rows[0] });
-  } catch (error) {
-    return next(error);
-  }
-});
-
-app.post('/api/applications', applicationIpRateLimit, applicationEmailRateLimit, async (request, response, next) => {
-  if (!pool) {
-    return response.status(503).json({
-      error: 'Registration is temporarily unavailable. Please try again later.',
-    });
-  }
-
-  const { application, errors } = validateApplication(request.body);
-  if (Object.keys(errors).length > 0) {
-    return response.status(400).json({ error: 'Please correct the highlighted fields.', errors });
-  }
-
-  try {
-    const result = await pool.query(
-      `INSERT INTO applications
-        (full_name, email, team_name, track, project_idea, github_link)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, created_at`,
-      [
-        application.fullName,
-        application.email,
-        application.teamName || null,
-        application.track,
-        application.projectIdea,
-        application.githubLink || null,
-      ],
-    );
 
     return response.status(201).json({ application: result.rows[0] });
   } catch (error) {
@@ -911,14 +1021,24 @@ async function start() {
   if (isProduction && !pool) {
     throw new Error('DATABASE_URL must be configured in production.');
   }
+  if (isProduction && siteOrigin && new URL(siteOrigin).protocol !== 'https:') {
+    throw new Error('SITE_ORIGIN must use HTTPS in production.');
+  }
 
   if (pool) {
     await pool.query(authTables);
     await pool.query(authMigration);
+    await pool.query(`DELETE FROM sessions WHERE user_id IN (
+      SELECT id FROM users WHERE google_subject IS NOT NULL AND email_verified_at IS NULL
+    )`);
+    await pool.query(`UPDATE users
+      SET password_hash = NULL, email_verified_at = NOW()
+      WHERE google_subject IS NOT NULL AND email_verified_at IS NULL`);
     await pool.query(eventApplicationTable);
     await pool.query(eventApplicationConsentMigration);
-    await pool.query(applicationTable);
+    await pool.query(eventApplicationHeardAboutMigration);
     await pool.query('DELETE FROM sessions WHERE expires_at <= NOW()');
+    await pool.query('DELETE FROM email_verification_tokens WHERE expires_at <= NOW()');
   } else {
     console.warn('DATABASE_URL is not set; registration writes are disabled.');
   }
@@ -928,7 +1048,9 @@ async function start() {
   }
 
   if (!emailEnabled) {
-    console.warn('Resend email is not configured; application receipts are disabled.');
+    console.warn('Resend email is not configured; email/password signup and application receipts are disabled.');
+  } else if (!siteOrigin) {
+    console.warn('SITE_ORIGIN is not configured; email/password signup is disabled.');
   }
 
   const server = app.listen(port, () => {
