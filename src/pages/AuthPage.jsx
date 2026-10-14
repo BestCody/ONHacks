@@ -10,7 +10,7 @@ const BG = '/assets/apply-bg.webp';
 
 function safeReturnTo(search) {
   const value = new URLSearchParams(search).get('returnTo');
-  if (value && value.startsWith('/') && !value.startsWith('//')) return value;
+  if (value && /^\/(?![\/\\])[^\\\u0000-\u001f]*$/.test(value)) return value;
   return '/dashboard';
 }
 
@@ -18,7 +18,7 @@ export default function AuthPage({ mode }) {
   const isSignUp = mode === 'signup';
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading: authLoading, signIn, signUp } = useAuth();
+  const { user, googleEnabled, loading: authLoading, signIn, signUp } = useAuth();
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -27,6 +27,15 @@ export default function AuthPage({ mode }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const googleError = new URLSearchParams(location.search).get('error');
+    if (googleError === 'google_unavailable') {
+      setError('Google sign-in is not configured yet. Use your email and password for now.');
+    } else if (googleError === 'google_auth_failed') {
+      setError('Google sign-in was not completed. Please try again or use your email and password.');
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -83,11 +92,11 @@ export default function AuthPage({ mode }) {
       <div className="w-full max-w-md mx-auto">
         <button
           type="button"
-          onClick={() => navigate('/')}
+          onClick={() => navigate(isSignUp ? `/signin${location.search}` : '/')}
           className="flex items-center gap-2 text-white/90 hover:text-white mb-6 text-sm font-medium drop-shadow"
         >
           <ArrowLeft size={16} />
-          Back home
+          {isSignUp ? 'Back to sign in' : 'Back home'}
         </button>
 
         <section className="bg-white rounded-2xl shadow-xl p-8 md:p-10">
@@ -107,6 +116,29 @@ export default function AuthPage({ mode }) {
             <div role="alert" className="mb-5 p-3 rounded-lg bg-red-50 text-red-700 text-sm">
               {error}
             </div>
+          )}
+
+          {googleEnabled && (
+            <>
+              <a
+                href={`/api/auth/google/start?returnTo=${encodeURIComponent(safeReturnTo(location.search))}`}
+                className="w-full h-12 rounded-md border border-[#0A1A2A]/20 bg-white text-[#0A1A2A] hover:bg-[#0A1A2A]/5 transition-colors flex items-center justify-center gap-3 text-sm font-semibold"
+              >
+                <span
+                  aria-hidden="true"
+                  className="w-6 h-6 rounded-full border border-[#0A1A2A]/20 flex items-center justify-center font-bold text-[#4285F4]"
+                >
+                  G
+                </span>
+                Continue with Google
+              </a>
+
+              <div className="flex items-center gap-3 my-6 text-xs uppercase tracking-[0.18em] text-black/40">
+                <span className="h-px bg-black/10 flex-1" />
+                <span>or use email</span>
+                <span className="h-px bg-black/10 flex-1" />
+              </div>
+            </>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">

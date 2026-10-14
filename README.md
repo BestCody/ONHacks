@@ -73,6 +73,27 @@ pages.
 - Request bodies and registration fields are size-limited and validated before
   parameterized database queries are executed.
 
+### Optional Google sign-in and application email
+
+The auth page includes **Continue with Google**. To enable it, create a Google
+OAuth 2.0 **Web application** client and add these redirect URIs:
+
+```text
+http://localhost:10000/api/auth/google/callback
+https://onhacks.ca/api/auth/google/callback
+```
+
+Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and
+`GOOGLE_OAUTH_REDIRECT_URI` in the environment where the server runs. Google
+accounts are linked to an existing account when the verified email matches.
+
+Participant application receipts use the Resend HTTPS API, which works on
+Render's Free plan. Verify `onhacks.ca` as a sending domain in Resend, then set
+`RESEND_API_KEY` and `EMAIL_FROM=ONHacks <hello@onhacks.ca>`. No organizer
+email notifications are sent. If the API key or sender address is not
+configured, applications still save, but receipts are skipped with a startup
+warning.
+
 ## Deploy on Render
 
 Use a Render **Web Service**, not a Static Site. The Express server serves the

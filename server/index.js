@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
+import { OAuth2Client } from 'google-auth-library';
 import helmet from 'helmet';
 import pg from 'pg';
 import {
@@ -31,7 +32,24 @@ const projectRoot = path.resolve(serverDirectory, '..');
 const distDirectory = path.join(projectRoot, 'dist');
 const databaseUrl = process.env.DATABASE_URL;
 const sessionCookieName = isProduction ? '__Host-onhacks_session' : 'onhacks_session';
+const googleStateCookieName = isProduction ? '__Host-onhacks_google_state' : 'onhacks_google_state';
+const googleReturnCookieName = isProduction ? '__Host-onhacks_google_return' : 'onhacks_google_return';
 const sessionDurationSeconds = 60 * 60 * 24 * 30;
+const googleStateDurationSeconds = 10 * 60;
+const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim() || '';
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() || '';
+const googleOAuthRedirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI?.trim() || '';
+const googleOAuthOrigin = googleOAuthRedirectUri ? new URL(googleOAuthRedirectUri).origin : '';
+const googleOAuthClient = googleClientId && googleClientSecret && googleOAuthRedirectUri
+  ? new OAuth2Client({
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
+      redirectUri: googleOAuthRedirectUri,
+    })
+  : null;
+const resendApiKey = process.env.RESEND_API_KEY?.trim() || '';
+const emailFrom = process.env.EMAIL_FROM?.trim() || '';
+const emailEnabled = Boolean(resendApiKey && emailFrom);
 const passwordHashOptions = {
   N: 16_384,
   r: 8,
@@ -152,7 +170,8 @@ const authTables = `
     id BIGSERIAL PRIMARY KEY,
     full_name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
+    password_hash TEXT,
+    google_subject TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
@@ -165,6 +184,14 @@ const authTables = `
 
   CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
   CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at);
+`;
+
+const authMigration = `
+  ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS google_subject TEXT;
+  CREATE UNIQUE INDEX IF NOT EXISTS users_google_subject_idx
+    ON users(google_subject)
+    WHERE google_subject IS NOT NULL;
 `;
 
 const eventApplicationTable = `
@@ -235,38 +262,47 @@ function hashSessionToken(token) {
   return createHash('sha256').update(token).digest('hex');
 }
 
-function setSessionCookie(response, token) {
+function appendCookie(response, name, value, maxAge) {
   const attributes = [
-    `${sessionCookieName}=${encodeURIComponent(token)}`,
+    `${name}=${encodeURIComponent(value)}`,
     'Path=/',
     'HttpOnly',
     'SameSite=Lax',
     'Priority=High',
-    `Max-Age=${sessionDurationSeconds}`,
+    `Max-Age=${maxAge}`,
   ];
 
   if (isProduction) {
     attributes.push('Secure');
   }
 
-  response.setHeader('Set-Cookie', attributes.join('; '));
+  response.append('Set-Cookie', attributes.join('; '));
+}
+
+function setSessionCookie(response, token) {
+  appendCookie(response, sessionCookieName, token, sessionDurationSeconds);
 }
 
 function clearSessionCookie(response) {
-  const attributes = [
-    `${sessionCookieName}=`,
-    'Path=/',
-    'HttpOnly',
-    'SameSite=Lax',
-    'Priority=High',
-    'Max-Age=0',
-  ];
+  appendCookie(response, sessionCookieName, '', 0);
+}
 
-  if (isProduction) {
-    attributes.push('Secure');
-  }
+function setGoogleStateCookies(response, state, returnTo) {
+  appendCookie(response, googleStateCookieName, state, googleStateDurationSeconds);
+  appendCookie(response, googleReturnCookieName, returnTo, googleStateDurationSeconds);
+}
 
-  response.setHeader('Set-Cookie', attributes.join('; '));
+function clearGoogleStateCookies(response) {
+  appendCookie(response, googleStateCookieName, '', 0);
+  appendCookie(response, googleReturnCookieName, '', 0);
+}
+
+function statesMatch(expectedState, receivedState) {
+  if (!expectedState || !receivedState) return false;
+
+  const expected = Buffer.from(expectedState);
+  const received = Buffer.from(receivedState);
+  return expected.length === received.length && timingSafeEqual(expected, received);
 }
 
 async function hashPassword(password) {
@@ -310,6 +346,64 @@ function validateAuthInput(body = {}, { requireName = false } = {}) {
   }
 
   return { name, email, password, errors };
+}
+
+function safeReturnTo(value) {
+  const candidate = clean(value);
+  if (/^\/(?![\/\\])[^\\\u0000-\u001f]*$/.test(candidate)) return candidate;
+  return '/dashboard';
+}
+
+async function findOrCreateGoogleUser(profile) {
+  const bySubject = await pool.query(
+    `SELECT id, full_name, email, created_at
+     FROM users
+     WHERE google_subject = $1`,
+    [profile.googleSubject],
+  );
+
+  if (bySubject.rows[0]) return bySubject.rows[0];
+
+  const result = await pool.query(
+    `INSERT INTO users (full_name, email, password_hash, google_subject)
+     VALUES ($1, $2, NULL, $3)
+     ON CONFLICT (email) DO UPDATE
+       SET google_subject = EXCLUDED.google_subject
+       WHERE users.google_subject IS NULL
+          OR users.google_subject = EXCLUDED.google_subject
+     RETURNING id, full_name, email, created_at`,
+    [profile.name, profile.email, profile.googleSubject],
+  );
+
+  if (!result.rows[0]) {
+    throw new Error('This email is already linked to another Google account.');
+  }
+
+  return result.rows[0];
+}
+
+async function getGoogleProfile(code) {
+  const { tokens } = await googleOAuthClient.getToken(code);
+  if (!tokens.id_token) {
+    throw new Error('Google did not return an ID token.');
+  }
+
+  const ticket = await googleOAuthClient.verifyIdToken({
+    idToken: tokens.id_token,
+    audience: googleClientId,
+  });
+  const payload = ticket.getPayload();
+  const email = clean(payload?.email).toLowerCase();
+
+  if (!payload?.sub || !email || payload.email_verified !== true) {
+    throw new Error('Google account email could not be verified.');
+  }
+
+  return {
+    googleSubject: payload.sub,
+    email,
+    name: clean(payload.name) || email.split('@')[0],
+  };
 }
 
 async function findAuthenticatedUser(request) {
@@ -439,6 +533,41 @@ function validateEventApplication(body = {}) {
   return { application, errors };
 }
 
+async function sendApplicationReceipt(application) {
+  if (!emailEnabled) return;
+
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: emailFrom,
+        to: application.email,
+        subject: 'ONHacks application received',
+        text: [
+          `Hi ${application.fullName},`,
+          '',
+          'We received your ONHacks application. The organizers will review it and contact you with next steps.',
+          '',
+          'This email confirms receipt only and does not guarantee acceptance.',
+          '',
+          '— The ONHacks team',
+        ].join('\n'),
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Email API returned HTTP ${response.status}.`);
+    }
+  } catch (error) {
+    console.error('Application receipt delivery failed:', error);
+  }
+}
+
 app.set('trust proxy', isProduction ? 1 : false);
 app.disable('x-powered-by');
 app.use(helmet({
@@ -514,9 +643,67 @@ app.get('/api/health', async (_request, response) => {
 
 app.get('/api/auth/me', async (request, response, next) => {
   try {
-    return response.json({ user: await findAuthenticatedUser(request) });
+    return response.json({
+      user: await findAuthenticatedUser(request),
+      providers: { google: Boolean(googleOAuthClient && pool) },
+    });
   } catch (error) {
     return next(error);
+  }
+});
+
+app.get('/api/auth/google/start', (request, response) => {
+  if (!googleOAuthClient || !pool) {
+    return response.redirect('/signin?error=google_unavailable');
+  }
+
+  const returnTo = safeReturnTo(request.query.returnTo);
+  if (`${request.protocol}://${request.get('host')}` !== googleOAuthOrigin) {
+    const canonicalUrl = new URL('/api/auth/google/start', googleOAuthOrigin);
+    canonicalUrl.searchParams.set('returnTo', returnTo);
+    return response.redirect(canonicalUrl.toString());
+  }
+
+  const state = randomBytes(32).toString('hex');
+  setGoogleStateCookies(response, state, returnTo);
+
+  const authorizeUrl = googleOAuthClient.generateAuthUrl({
+    access_type: 'online',
+    prompt: 'select_account',
+    scope: ['openid', 'email', 'profile'],
+    state,
+  });
+
+  return response.redirect(authorizeUrl);
+});
+
+app.get('/api/auth/google/callback', async (request, response) => {
+  const cookies = parseCookies(request.headers.cookie);
+  const returnTo = safeReturnTo(cookies[googleReturnCookieName]);
+  const expectedState = cookies[googleStateCookieName];
+  clearGoogleStateCookies(response);
+
+  if (
+    !googleOAuthClient
+    || request.query.error
+    || typeof request.query.state !== 'string'
+    || !statesMatch(expectedState, request.query.state)
+  ) {
+    return response.redirect('/signin?error=google_auth_failed');
+  }
+
+  if (typeof request.query.code !== 'string' || !request.query.code) {
+    return response.redirect('/signin?error=google_auth_failed');
+  }
+
+  try {
+    const profile = await getGoogleProfile(request.query.code);
+    const userRecord = await findOrCreateGoogleUser(profile);
+    await createSession(userRecord.id, response);
+    return response.redirect(returnTo);
+  } catch (error) {
+    console.error('Google authentication failed:', error);
+    return response.redirect('/signin?error=google_auth_failed');
   }
 });
 
@@ -650,6 +837,8 @@ app.post('/api/event-applications', applicationIpRateLimit, applicationEmailRate
       ],
     );
 
+    await sendApplicationReceipt(application);
+
     return response.status(201).json({ application: result.rows[0] });
   } catch (error) {
     return next(error);
@@ -725,12 +914,21 @@ async function start() {
 
   if (pool) {
     await pool.query(authTables);
+    await pool.query(authMigration);
     await pool.query(eventApplicationTable);
     await pool.query(eventApplicationConsentMigration);
     await pool.query(applicationTable);
     await pool.query('DELETE FROM sessions WHERE expires_at <= NOW()');
   } else {
     console.warn('DATABASE_URL is not set; registration writes are disabled.');
+  }
+
+  if (!googleOAuthClient) {
+    console.warn('Google OAuth is not configured; Google sign-in is disabled.');
+  }
+
+  if (!emailEnabled) {
+    console.warn('Resend email is not configured; application receipts are disabled.');
   }
 
   const server = app.listen(port, () => {

@@ -24,6 +24,7 @@ async function authRequest(path, options = {}) {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [googleEnabled, setGoogleEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,7 +32,10 @@ export function AuthProvider({ children }) {
 
     authRequest('/api/auth/me')
       .then((data) => {
-        if (active) setUser(data.user || null);
+        if (active) {
+          setUser(data.user || null);
+          setGoogleEnabled(data.providers?.google === true);
+        }
       })
       .catch(() => {
         if (active) setUser(null);
@@ -69,7 +73,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, googleEnabled, loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
