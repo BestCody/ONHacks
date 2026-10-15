@@ -12,6 +12,7 @@ import {
 } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { APP_PATHS } from '../src/routes.js';
 
 const { Pool } = pg;
 const scrypt = (password, salt, keyLength, options) => new Promise((resolve, reject) => {
@@ -30,6 +31,7 @@ const port = Number(process.env.PORT || 10000);
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(serverDirectory, '..');
 const distDirectory = path.join(projectRoot, 'dist');
+const clientRoutes = new Set(Object.values(APP_PATHS).map((route) => route.toLowerCase()));
 const databaseUrl = process.env.DATABASE_URL;
 const sessionCookieName = isProduction ? '__Host-onhacks_session' : 'onhacks_session';
 const googleStateCookieName = isProduction ? '__Host-onhacks_google_state' : 'onhacks_google_state';
@@ -1015,12 +1017,24 @@ app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applica
 
 app.use(express.static(distDirectory));
 
-// React Router owns client-side routes. Render must receive index.html for them.
+// Serve the SPA for real routes and the 404 screen for unknown page URLs.
 app.use((request, response, next) => {
-  if (request.method !== 'GET' || request.path.startsWith('/api/')) {
+  if (!['GET', 'HEAD'].includes(request.method) || request.path.startsWith('/api/')) {
     return next();
   }
 
+  let route;
+  try {
+    route = decodeURI(request.path).replace(/\/+$/, '').toLowerCase() || '/';
+  } catch {
+    return response.status(404).type('text/plain').send('Not found');
+  }
+
+  if (route.startsWith('/assets/') || path.extname(route)) {
+    return response.status(404).type('text/plain').send('Not found');
+  }
+
+  response.status(clientRoutes.has(route) ? 200 : 404);
   return response.sendFile(path.join(distDirectory, 'index.html'), (error) => {
     if (error) next(error);
   });

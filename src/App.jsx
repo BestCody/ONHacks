@@ -9,6 +9,7 @@ import AuthPage from '@/pages/AuthPage';
 import VerifyEmail from '@/pages/VerifyEmail';
 import Dashboard from '@/pages/Dashboard';
 import LegalPage from '@/pages/LegalPage';
+import { APP_PATHS } from '@/routes';
 
 const NotFound = () => (
   <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
@@ -26,18 +27,18 @@ function App() {
       <Router>
         <ScrollToTop />
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/apply" element={<ProtectedRoute><Apply /></ProtectedRoute>} />
-          <Route path="/privacy" element={<LegalPage document="privacy" />} />
-          <Route path="/participant-terms" element={<LegalPage document="terms" />} />
-          <Route path="/code-of-conduct" element={<LegalPage document="conduct" />} />
-          <Route path="/signin" element={<AuthPage key="signin" mode="signin" />} />
-          <Route path="/signup" element={<AuthPage key="signup" mode="signup" />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/login" element={<Navigate to="/signin" replace />} />
-          <Route path="/register" element={<Navigate to="/signup" replace />} />
+          <Route path={APP_PATHS.home} element={<Home />} />
+          <Route path={APP_PATHS.apply} element={<ProtectedRoute><Apply /></ProtectedRoute>} />
+          <Route path={APP_PATHS.privacy} element={<LegalPage document="privacy" />} />
+          <Route path={APP_PATHS.participantTerms} element={<LegalPage document="terms" />} />
+          <Route path={APP_PATHS.codeOfConduct} element={<LegalPage document="conduct" />} />
+          <Route path={APP_PATHS.signIn} element={<AuthPage key="signin" mode="signin" />} />
+          <Route path={APP_PATHS.signUp} element={<AuthPage key="signup" mode="signup" />} />
+          <Route path={APP_PATHS.verifyEmail} element={<VerifyEmail />} />
+          <Route path={APP_PATHS.login} element={<Navigate to={APP_PATHS.signIn} replace />} />
+          <Route path={APP_PATHS.register} element={<Navigate to={APP_PATHS.signUp} replace />} />
           <Route
-            path="/dashboard"
+            path={APP_PATHS.dashboard}
             element={
               <ProtectedRoute>
                 <Dashboard />

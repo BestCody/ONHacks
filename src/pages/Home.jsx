@@ -238,12 +238,12 @@ function getStreamPoint(progress) {
   };
 }
 
-function scrollToSection(sectionId) {
+function scrollToSection(sectionId, behavior = 'smooth') {
   const section = document.getElementById(sectionId);
   if (!section) return;
 
   if (window.location.hash) {
-    window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.search}`);
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`);
   }
 
   const navigation = document.querySelector('.site-nav');
@@ -252,7 +252,7 @@ function scrollToSection(sectionId) {
 
   window.scrollTo({
     top: Math.max(0, top),
-    behavior: 'smooth',
+    behavior,
   });
 }
 
@@ -308,7 +308,7 @@ export default function Home() {
       window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`);
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
-        document.getElementById(targetId)?.scrollIntoView({ block: 'start', behavior: 'auto' });
+        scrollToSection(targetId, 'auto');
       });
     };
 
