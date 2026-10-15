@@ -77,7 +77,9 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     await authRequest('/api/auth/signout', { method: 'POST' });
-    setUser(null);
+    // Reload on the public home page so the protected route cannot redirect
+    // to sign-in while the browser clears its session.
+    window.location.replace('/');
   };
 
   return (

@@ -29,6 +29,8 @@ export default function Apply() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
+  const [applicationCheck, setApplicationCheck] = useState('loading');
+  const [checkRetry, setCheckRetry] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -38,6 +40,30 @@ export default function Apply() {
       name: previous.name || user.name,
     }));
   }, [user]);
+
+  useEffect(() => {
+    let active = true;
+    setApplicationCheck('loading');
+
+    fetch('/api/event-applications/me', { credentials: 'include' })
+      .then((response) => {
+        if (!response.ok) throw new Error('Application status unavailable');
+        return response.json();
+      })
+      .then((data) => {
+        if (!active) return;
+        if (data.application) {
+          navigate('/dashboard', { replace: true });
+        } else {
+          setApplicationCheck('ready');
+        }
+      })
+      .catch(() => {
+        if (active) setApplicationCheck('error');
+      });
+
+    return () => { active = false; };
+  }, [navigate, checkRetry]);
 
   const setField = (field) => (event) => {
     setForm((previous) => ({
@@ -120,8 +146,7 @@ export default function Apply() {
 
       setDone(true);
     } catch (err) {
-      console.error(err);
-      setError('Submission failed. Please try again.');
+      setError(err instanceof Error ? err.message : 'Submission failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -156,6 +181,35 @@ export default function Apply() {
           </Button>
         </div>
       </div>
+    );
+  }
+
+  if (applicationCheck !== 'ready') {
+    return (
+      <main
+        className="min-h-screen flex items-center justify-center px-4"
+        style={{
+          backgroundImage: `url(${BG})`,
+          backgroundRepeat: 'no-repeat',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundColor: '#163d6b',
+        }}
+      >
+        <section className="w-full max-w-md text-center bg-white rounded-2xl shadow-xl p-8 md:p-10" aria-live="polite">
+          <h1 className="font-bubbly text-3xl text-[#0A1A2A] mb-3">Apply to ONHacks</h1>
+          <p className="text-black/70 mb-5">
+            {applicationCheck === 'loading'
+              ? 'Checking your application status...'
+              : "We couldn't check your application status. Please try again."}
+          </p>
+          {applicationCheck === 'error' && (
+            <Button type="button" onClick={() => setCheckRetry((value) => value + 1)} className="bg-[#FF2E2E] hover:bg-[#FF2E2E]/90 text-white">
+              Try again
+            </Button>
+          )}
+        </section>
+      </main>
     );
   }
 

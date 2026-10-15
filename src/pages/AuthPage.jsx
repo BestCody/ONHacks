@@ -88,6 +88,9 @@ export default function AuthPage({ mode }) {
 
   const switchPath = isSignUp ? '/signin' : '/signup';
   const switchLabel = isSignUp ? 'Sign in instead' : 'Create an account';
+  const switchSearch = new URLSearchParams(location.search).has('returnTo')
+    ? `?returnTo=${encodeURIComponent(safeReturnTo(location.search))}`
+    : '';
 
   if (verificationEmail) {
     return (
@@ -104,7 +107,7 @@ export default function AuthPage({ mode }) {
             Didn&apos;t receive it? Check your spam folder, then try signing in to request a fresh link.
           </p>
           <Link
-            to={`/signin${location.search}`}
+            to={`/signin${switchSearch}`}
             className="mt-7 flex h-12 items-center justify-center rounded-md bg-[#FF2E2E] text-white font-bungee hover:bg-[#FF2E2E]/90"
           >
             Back to sign in
@@ -122,7 +125,7 @@ export default function AuthPage({ mode }) {
       <div className="w-full max-w-md mx-auto">
         <button
           type="button"
-          onClick={() => navigate(isSignUp ? `/signin${location.search}` : '/')}
+          onClick={() => navigate(isSignUp ? `/signin${switchSearch}` : '/')}
           className="flex items-center gap-2 text-white/90 hover:text-white mb-6 text-sm font-medium drop-shadow"
         >
           <ArrowLeft size={16} />
@@ -252,7 +255,7 @@ export default function AuthPage({ mode }) {
           <p className="text-center text-sm text-black/60 mt-6">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
             <Link
-              to={`${switchPath}${location.search}`}
+              to={`${switchPath}${switchSearch}`}
               className="font-semibold text-[#0A1A2A] underline underline-offset-2 hover:text-[#FF2E2E]"
             >
               {switchLabel}

@@ -31,8 +31,8 @@ function App() {
           <Route path="/privacy" element={<LegalPage document="privacy" />} />
           <Route path="/participant-terms" element={<LegalPage document="terms" />} />
           <Route path="/code-of-conduct" element={<LegalPage document="conduct" />} />
-          <Route path="/signin" element={<AuthPage mode="signin" />} />
-          <Route path="/signup" element={<AuthPage mode="signup" />} />
+          <Route path="/signin" element={<AuthPage key="signin" mode="signin" />} />
+          <Route path="/signup" element={<AuthPage key="signup" mode="signup" />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/login" element={<Navigate to="/signin" replace />} />
           <Route path="/register" element={<Navigate to="/signup" replace />} />

@@ -12,17 +12,25 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [applicationLoading, setApplicationLoading] = useState(true);
   const [application, setApplication] = useState(null);
+  const [applicationError, setApplicationError] = useState(false);
+  const [statusRetry, setStatusRetry] = useState(0);
+  const [signOutError, setSignOutError] = useState('');
 
   useEffect(() => {
     let active = true;
+    setApplicationLoading(true);
+    setApplicationError(false);
 
     fetch('/api/event-applications/me', { credentials: 'include' })
-      .then((response) => (response.ok ? response.json() : { application: null }))
+      .then((response) => {
+        if (!response.ok) throw new Error('Application status unavailable');
+        return response.json();
+      })
       .then((data) => {
         if (active) setApplication(data.application || null);
       })
       .catch(() => {
-        if (active) setApplication(null);
+        if (active) setApplicationError(true);
       })
       .finally(() => {
         if (active) setApplicationLoading(false);
@@ -31,13 +39,15 @@ export default function Dashboard() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [statusRetry]);
 
   const handleSignOut = async () => {
     setLoading(true);
+    setSignOutError('');
     try {
       await signOut();
-      navigate('/', { replace: true });
+    } catch {
+      setSignOutError('Could not sign out. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -80,21 +90,29 @@ export default function Dashboard() {
           <div className="rounded-xl border border-black/10 bg-[#f8fafc] p-5 mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
               <h2 className="font-bungee text-lg text-[#0A1A2A]">Application</h2>
-              <span className={`font-tech text-xs uppercase tracking-widest rounded-full px-3 py-1.5 w-fit ${application ? 'text-emerald-700 bg-emerald-50' : 'text-black/50 bg-black/5'}`}>
-                {applicationLoading ? 'Checking' : application ? 'Received' : 'Not submitted'}
+              <span className={`font-tech text-xs uppercase tracking-widest rounded-full px-3 py-1.5 w-fit ${applicationError ? 'text-red-700 bg-red-50' : application ? 'text-emerald-700 bg-emerald-50' : 'text-black/50 bg-black/5'}`}>
+                {applicationLoading ? 'Checking' : applicationError ? 'Unavailable' : application ? 'Received' : 'Not submitted'}
               </span>
             </div>
             <p className="text-black/60 leading-relaxed">
               {applicationLoading
                 ? 'Checking your application status...'
+                : applicationError
+                ? "We couldn't check your application status. Please try again."
                 : application
                 ? `Thanks, ${application.full_name}. Your application was received and is being reviewed.`
                 : 'Complete the hackathon application when you are ready to join the event.'}
             </p>
+            {applicationError && !applicationLoading && (
+              <Button type="button" variant="outline" className="mt-3" onClick={() => setStatusRetry((value) => value + 1)}>
+                Try again
+              </Button>
+            )}
           </div>
 
+          {signOutError && <p role="alert" className="mb-4 text-sm text-red-700">{signOutError}</p>}
           <div className="flex flex-col sm:flex-row gap-3">
-            {!applicationLoading && !application && (
+            {!applicationLoading && !applicationError && !application && (
               <Button
                 onClick={() => navigate('/apply')}
                 className="flex-1 h-12 font-bungee bg-[#FF2E2E] hover:bg-[#FF2E2E]/90 text-white"

@@ -962,8 +962,26 @@ app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applica
     return response.status(400).json({ error: 'Please correct the highlighted fields.', errors });
   }
 
+  let client;
+  let savedApplication;
   try {
-    const result = await pool.query(
+    client = await pool.connect();
+    await client.query('BEGIN');
+    // Lock the account so concurrent submissions from separate tabs or servers
+    // cannot both pass the existing-application check.
+    await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [request.user.id]);
+    const existing = await client.query(
+      `SELECT id FROM event_applications
+       WHERE user_id = $1 OR (user_id IS NULL AND email = $2)
+       LIMIT 1`,
+      [request.user.id, request.user.email],
+    );
+    if (existing.rowCount > 0) {
+      await client.query('ROLLBACK');
+      return response.status(409).json({ error: 'You have already submitted an application.' });
+    }
+
+    const result = await client.query(
       `INSERT INTO event_applications
         (user_id, full_name, team, github, high_school, supplies, heard_about, email,
          privacy_notice_accepted_at, participant_terms_accepted_at, code_of_conduct_accepted_at)
@@ -980,13 +998,17 @@ app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applica
         application.email,
       ],
     );
-
-    await sendApplicationReceipt(application);
-
-    return response.status(201).json({ application: result.rows[0] });
+    savedApplication = result.rows[0];
+    await client.query('COMMIT');
   } catch (error) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
     return next(error);
+  } finally {
+    client?.release();
   }
+
+  await sendApplicationReceipt(application);
+  return response.status(201).json({ application: savedApplication });
 });
 
 app.use(express.static(distDirectory));
