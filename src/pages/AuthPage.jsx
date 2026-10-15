@@ -8,9 +8,10 @@ import { useAuth } from '@/context/AuthContext';
 
 const BG = '/assets/apply-bg.webp';
 
-function safeReturnTo(search) {
-  const value = new URLSearchParams(search).get('returnTo');
-  if (value && /^\/(?![\/\\])[^\\\u0000-\u001f]*$/.test(value)) return value;
+function safeReturnTo(value) {
+  if (typeof value === 'string' && /^\/(?![\/\\])[^\\\u0000-\u001f]*$/.test(value)) {
+    return new URL(value, window.location.origin).pathname;
+  }
   return '/dashboard';
 }
 
@@ -18,6 +19,9 @@ export default function AuthPage({ mode }) {
   const isSignUp = mode === 'signup';
   const navigate = useNavigate();
   const location = useLocation();
+  const returnTo = safeReturnTo(
+    location.state?.returnTo ?? new URLSearchParams(location.search).get('returnTo'),
+  );
   const { user, googleEnabled, loading: authLoading, signIn, signUp } = useAuth();
   const [form, setForm] = useState({
     name: '',
@@ -43,13 +47,17 @@ export default function AuthPage({ mode }) {
     } else if (googleError === 'google_auth_failed') {
       setError('Google sign-in was not completed. Please try again or use your email and password.');
     }
-  }, [location.search]);
+
+    if (location.search || location.hash) {
+      navigate(location.pathname, { replace: true, state: { returnTo } });
+    }
+  }, [location.hash, location.pathname, location.search, navigate, returnTo]);
 
   useEffect(() => {
     if (!authLoading && user) {
-      navigate(safeReturnTo(location.search), { replace: true });
+      navigate(returnTo, { replace: true });
     }
-  }, [authLoading, location.search, navigate, user]);
+  }, [authLoading, navigate, returnTo, user]);
 
   const setField = (field) => (event) => {
     setForm((previous) => ({ ...previous, [field]: event.target.value }));
@@ -78,7 +86,7 @@ export default function AuthPage({ mode }) {
       }
 
       await signIn({ email: form.email, password: form.password });
-      navigate(safeReturnTo(location.search), { replace: true });
+      navigate(returnTo, { replace: true });
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -88,9 +96,6 @@ export default function AuthPage({ mode }) {
 
   const switchPath = isSignUp ? '/signin' : '/signup';
   const switchLabel = isSignUp ? 'Sign in instead' : 'Create an account';
-  const switchSearch = new URLSearchParams(location.search).has('returnTo')
-    ? `?returnTo=${encodeURIComponent(safeReturnTo(location.search))}`
-    : '';
 
   if (verificationEmail) {
     return (
@@ -107,7 +112,8 @@ export default function AuthPage({ mode }) {
             Didn&apos;t receive it? Check your spam folder, then try signing in to request a fresh link.
           </p>
           <Link
-            to={`/signin${switchSearch}`}
+            to="/signin"
+            state={{ returnTo }}
             className="mt-7 flex h-12 items-center justify-center rounded-md bg-[#FF2E2E] text-white font-bungee hover:bg-[#FF2E2E]/90"
           >
             Back to sign in
@@ -125,7 +131,7 @@ export default function AuthPage({ mode }) {
       <div className="w-full max-w-md mx-auto">
         <button
           type="button"
-          onClick={() => navigate(isSignUp ? `/signin${switchSearch}` : '/')}
+          onClick={() => navigate(isSignUp ? '/signin' : '/', isSignUp ? { state: { returnTo } } : undefined)}
           className="flex items-center gap-2 text-white/90 hover:text-white mb-6 text-sm font-medium drop-shadow"
         >
           <ArrowLeft size={16} />
@@ -154,7 +160,7 @@ export default function AuthPage({ mode }) {
           {googleEnabled && (
             <>
               <a
-                href={`/api/auth/google/start?returnTo=${encodeURIComponent(safeReturnTo(location.search))}`}
+                href={`/api/auth/google/start${returnTo === '/dashboard' ? '' : `?returnTo=${encodeURIComponent(returnTo)}`}`}
                 className="w-full h-12 rounded-md border border-[#0A1A2A]/20 bg-white text-[#0A1A2A] hover:bg-[#0A1A2A]/5 transition-colors flex items-center justify-center gap-3 text-sm font-semibold"
               >
                 <img
@@ -255,7 +261,8 @@ export default function AuthPage({ mode }) {
           <p className="text-center text-sm text-black/60 mt-6">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
             <Link
-              to={`${switchPath}${switchSearch}`}
+              to={switchPath}
+              state={{ returnTo }}
               className="font-semibold text-[#0A1A2A] underline underline-offset-2 hover:text-[#FF2E2E]"
             >
               {switchLabel}

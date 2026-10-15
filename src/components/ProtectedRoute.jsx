@@ -18,6 +18,5 @@ export default function ProtectedRoute({ children }) {
   if (loading) return <AuthLoading />;
   if (user) return children;
 
-  const returnTo = `${location.pathname}${location.search}`;
-  return <Navigate to={`/signin?returnTo=${encodeURIComponent(returnTo)}`} replace />;
+  return <Navigate to="/signin" state={{ returnTo: location.pathname }} replace />;
 }

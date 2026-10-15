@@ -234,7 +234,7 @@ export default function Apply() {
           Back home
         </button>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white rounded-2xl shadow-xl p-8 [overflow-wrap:anywhere]">
 
           <h1 className="font-bubbly text-4xl text-[#0A1A2A] mb-2">
             Apply to ONHacks
@@ -504,7 +504,7 @@ export default function Apply() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-12 text-lg font-bungee bg-[#FF2E2E] hover:bg-[#FF2E2E]/90 text-white"
+              className="w-full h-12 text-sm sm:text-lg font-bungee bg-[#FF2E2E] hover:bg-[#FF2E2E]/90 text-white"
             >
               {loading ? (
                 <>

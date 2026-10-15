@@ -301,14 +301,23 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const targetId = window.location.hash.slice(1);
-    if (!targetId) return undefined;
+    let frame;
+    const scrollToHash = () => {
+      if (!window.location.hash) return;
+      const targetId = window.location.hash.slice(1);
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`);
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        document.getElementById(targetId)?.scrollIntoView({ block: 'start', behavior: 'auto' });
+      });
+    };
 
-    const frame = window.requestAnimationFrame(() => {
-      document.getElementById(targetId)?.scrollIntoView({ block: 'start', behavior: 'auto' });
-    });
-
-    return () => window.cancelAnimationFrame(frame);
+    scrollToHash();
+    window.addEventListener('hashchange', scrollToHash);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('hashchange', scrollToHash);
+    };
   }, []);
 
   useEffect(() => {
@@ -424,7 +433,7 @@ export default function Home() {
           <div className="site-nav-actions">
             <button
               type="button"
-              onClick={() => navigate('/signin?returnTo=%2Fdashboard')}
+              onClick={() => navigate('/signin')}
               className="site-nav-register">
               Register
             </button>
@@ -473,7 +482,7 @@ export default function Home() {
         </div>
 
         <motion.button
-          onClick={() => navigate('/signin?returnTo=%2Fdashboard')}
+          onClick={() => navigate('/signin')}
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.7, type: "spring" }}

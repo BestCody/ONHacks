@@ -352,7 +352,9 @@ function validateAuthInput(body = {}, { requireName = false } = {}) {
 
 function safeReturnTo(value) {
   const candidate = clean(value);
-  if (/^\/(?![\/\\])[^\\\u0000-\u001f]*$/.test(candidate)) return candidate;
+  if (/^\/(?![\/\\])[^\\\u0000-\u001f]*$/.test(candidate)) {
+    return new URL(candidate, 'http://localhost').pathname;
+  }
   return '/dashboard';
 }
 
@@ -722,7 +724,7 @@ app.get('/api/auth/google/start', (request, response) => {
   const returnTo = safeReturnTo(request.query.returnTo);
   if (`${request.protocol}://${request.get('host')}` !== googleOAuthOrigin) {
     const canonicalUrl = new URL('/api/auth/google/start', googleOAuthOrigin);
-    canonicalUrl.searchParams.set('returnTo', returnTo);
+    if (returnTo !== '/dashboard') canonicalUrl.searchParams.set('returnTo', returnTo);
     return response.redirect(canonicalUrl.toString());
   }
 

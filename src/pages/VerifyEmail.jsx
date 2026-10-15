@@ -10,7 +10,7 @@ const BG = '/assets/apply-bg.webp';
 export default function VerifyEmail() {
   const navigate = useNavigate();
   const { verifyEmail } = useAuth();
-  const [token] = useState(() => {
+  const [token, setToken] = useState(() => {
     const value = new URLSearchParams(window.location.hash.slice(1)).get('token') || '';
     return /^[a-f0-9]{64}$/.test(value) ? value : '';
   });
@@ -19,9 +19,18 @@ export default function VerifyEmail() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (window.location.hash) {
+    const readAndClearToken = () => {
+      if (!window.location.hash) return;
+      const value = new URLSearchParams(window.location.hash.slice(1)).get('token') || '';
+      setToken(/^[a-f0-9]{64}$/.test(value) ? value : '');
+      setError('');
+      setPassword('');
       window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`);
-    }
+    };
+
+    readAndClearToken();
+    window.addEventListener('hashchange', readAndClearToken);
+    return () => window.removeEventListener('hashchange', readAndClearToken);
   }, []);
 
   const handleSubmit = async (event) => {

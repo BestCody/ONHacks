@@ -74,7 +74,7 @@ export default function Dashboard() {
           Back home
         </button>
 
-        <section className="bg-white rounded-2xl shadow-xl p-8 md:p-10">
+        <section className="bg-white rounded-2xl shadow-xl p-8 md:p-10 [overflow-wrap:anywhere]">
           <p className="font-tech text-xs uppercase tracking-[0.25em] text-[#FF2E2E] mb-4">
             ONHacks // Dashboard
           </p>
