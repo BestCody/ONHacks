@@ -641,7 +641,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       baseUri: ["'self'"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", 'https://cloudflareinsights.com'],
       fontSrc: ["'self'", 'data:'],
       formAction: ["'self'"],
       frameAncestors: ["'none'"],
@@ -649,7 +649,7 @@ app.use(helmet({
       imgSrc: ["'self'", 'data:', 'blob:'],
       mediaSrc: ["'self'", 'blob:'],
       objectSrc: ["'none'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", 'https://static.cloudflareinsights.com/beacon.min.js'],
       styleSrc: ["'self'", "'unsafe-inline'"],
       upgradeInsecureRequests: isProduction ? [] : null,
       workerSrc: ["'self'", 'blob:'],

@@ -11,6 +11,7 @@ const DOCUMENTS = {
         paragraphs: [
           'We collect the information you provide in your account and application, including your name, email address, team status, GitHub profile, high-school confirmation, supplies confirmation, and how you heard about ONHacks.',
           'We also keep technical information needed to secure the service, such as session and rate-limiting information.',
+          'We use cookie-free Cloudflare Web Analytics to measure visits, page views, and website performance. It does not track individual visitors across websites.',
         ],
       },
       {
