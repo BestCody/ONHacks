@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, Instagram } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LoadingScreen from '@/components/LoadingScreen';
 import SubmarineOrganizers from '@/components/SubmarineOrganizers';
+import { EVENT_DETAILS } from '@/eventDetails';
 
 const VIDEO_URL = "/assets/hero.mp4";
 const MASCOT_ART = "/assets/download.png";
@@ -113,36 +114,19 @@ const PARTNERS = [
   },
 ];
 
-function PartnerBubble({ partner, index }) {
-  const className = `partner-bubble${partner ? ' partner-bubble--branded' : ''}${
-    partner?.name === 'Next Generation Hacks' ? ' partner-bubble--ngnhacks' : ''
+function PartnerBubble({ partner }) {
+  const className = `partner-bubble partner-bubble--branded${
+    partner.name === 'Next Generation Hacks' ? ' partner-bubble--ngnhacks' : ''
   }`;
-  const ariaLabel = partner?.href
-    ? `Visit ${partner.name} website`
-    : partner?.name ?? `Partner ${index + 1} placeholder`;
-  const content = partner ? (
-    <img src={partner.logo} alt={partner.name} className="partner-logo" />
-  ) : (
-    'PARTNER'
-  );
-
-  if (partner?.href) {
-    return (
-      <a
-        href={partner.href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={className}
-        aria-label={ariaLabel}>
-        {content}
-      </a>
-    );
-  }
-
   return (
-    <div className={className} role="img" aria-label={ariaLabel}>
-      {content}
-    </div>
+    <a
+      href={partner.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+      aria-label={`Visit ${partner.name} website`}>
+      <img src={partner.logo} alt={partner.name} className="partner-logo" />
+    </a>
   );
 }
 
@@ -160,14 +144,6 @@ function SponsorBubble({ sponsor, featured = false }) {
         className={`sponsor-logo${sponsor.name === 'McMaster University' ? ' sponsor-logo--mcmaster' : ''}`}
       />
   );
-
-  if (!sponsor.href) {
-    return (
-      <div className={bubbleClassName} role="img" aria-label={sponsor.name}>
-        {bubbleContent}
-      </div>
-    );
-  }
 
   return (
     <a
@@ -258,7 +234,6 @@ function scrollToSection(sectionId, behavior = 'smooth') {
 
 export default function Home() {
   const navigate = useNavigate();
-  const heroRef = useRef(null);
   const aboutSectionRef = useRef(null);
   const lastScrollYRef = useRef(0);
   const previousScrollDirectionRef = useRef('down');
@@ -317,38 +292,6 @@ export default function Home() {
     return () => {
       window.cancelAnimationFrame(frame);
       window.removeEventListener('hashchange', scrollToHash);
-    };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-
-    const syncFaqGap = () => {
-      if (!active) return;
-
-      const lastPartnerBubble = document.querySelector('#partners .partner-bubble:last-child');
-      const sponsorsHeading = document.getElementById('sponsors-heading');
-      const lastSponsorBubble = document.querySelector('#sponsors .partner-bubble:last-child');
-      const faqSection = document.getElementById('faq');
-
-      if (!lastPartnerBubble || !sponsorsHeading || !lastSponsorBubble || !faqSection) return;
-
-      const partnerToSponsorsGap =
-        sponsorsHeading.getBoundingClientRect().top - lastPartnerBubble.getBoundingClientRect().bottom;
-      const faqSectionOffset =
-        faqSection.getBoundingClientRect().top - lastSponsorBubble.getBoundingClientRect().bottom;
-      const faqTopGap = Math.max(0, partnerToSponsorsGap - faqSectionOffset);
-
-      faqSection.style.setProperty('--faq-top-gap', `${faqTopGap}px`);
-    };
-
-    syncFaqGap();
-    window.addEventListener('resize', syncFaqGap);
-    document.fonts?.ready.then(syncFaqGap);
-
-    return () => {
-      active = false;
-      window.removeEventListener('resize', syncFaqGap);
     };
   }, []);
 
@@ -412,7 +355,7 @@ export default function Home() {
     <div className="relative overflow-x-hidden bg-[#06283d] text-black">
       <LoadingScreen ready={videoReady} />
 
-      <section id="top" ref={heroRef} className="relative h-screen w-full overflow-hidden">
+      <section id="top" className="relative h-screen w-full overflow-hidden">
         <header className="site-nav" aria-label="Site navigation">
           <nav className="site-nav-left" aria-label="Primary navigation">
             <button
@@ -460,8 +403,6 @@ export default function Home() {
           <source src={VIDEO_URL} type="video/mp4" />
         </video>
 
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-black/50 hidden" />
-
         <div className="hero-copy absolute left-0">
           <motion.h1
             initial={{ opacity: 0, y: -30, rotate: -3 }}
@@ -477,7 +418,7 @@ export default function Home() {
             transition={{ delay: 0.4, duration: 0.6 }}
             className="font-tech mt-4 tracking-[0.2em] font-bold text-xl text-[hsl(var(--foreground))]"
             style={{ fontSize: "clamp(1rem, 2.5vw, 1.5rem)", textShadow: "0 2px 12px rgba(0,0,0,0.8)" }}>
-            NOVEMBER 15, <span className="font-bold">Polish Combatants' Hall</span>
+            {EVENT_DETAILS.dateLabel}, <span className="font-bold">{EVENT_DETAILS.venue}</span>
           </motion.p>
         </div>
 
@@ -559,11 +500,10 @@ export default function Home() {
             Our Partners
           </h2>
           <div className="partners-bubble-grid" aria-label="Partners">
-            {PARTNERS.map((partner, index) => (
+            {PARTNERS.map((partner) => (
               <PartnerBubble
-                key={partner?.name ?? `partner-placeholder-${index}`}
+                key={partner.name}
                 partner={partner}
-                index={index}
               />
             ))}
           </div>
@@ -645,7 +585,6 @@ export default function Home() {
         </h2>
         <SubmarineOrganizers />
       </section>
-      <div className="sponsors-deep-blue-section" aria-hidden="true" />
     </div>
   );
 }

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, LogOut, Send } from 'lucide-react';
+import { ArrowLeft, LogOut, Send, Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
+import { formatParticipantName } from '@/participantName';
 
 const BG = '/assets/apply-bg.webp';
 
@@ -81,7 +82,7 @@ export default function Dashboard() {
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
             <div>
               <h1 className="font-bubbly text-4xl text-[#0A1A2A] mb-2">
-                Hey, {user?.name}!
+                Hey, {formatParticipantName(user?.name)}!
               </h1>
               <p className="text-black/60">{user?.email}</p>
             </div>
@@ -91,7 +92,7 @@ export default function Dashboard() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
               <h2 className="font-bungee text-lg text-[#0A1A2A]">Application</h2>
               <span className={`font-tech text-xs uppercase tracking-widest rounded-full px-3 py-1.5 w-fit ${applicationError ? 'text-red-700 bg-red-50' : application ? 'text-emerald-700 bg-emerald-50' : 'text-black/50 bg-black/5'}`}>
-                {applicationLoading ? 'Checking' : applicationError ? 'Unavailable' : application ? 'Received' : 'Not submitted'}
+                {applicationLoading ? 'Checking' : applicationError ? 'Unavailable' : application?.accepted ? 'Accepted' : application ? 'Received' : 'Not submitted'}
               </span>
             </div>
             <p className="text-black/60 leading-relaxed">
@@ -100,7 +101,9 @@ export default function Dashboard() {
                 : applicationError
                 ? "We couldn't check your application status. Please try again."
                 : application
-                ? `Thanks, ${application.full_name}. Your application was received and is being reviewed.`
+                ? application.accepted
+                  ? `You're accepted, ${formatParticipantName(application.full_name)}! Open your participant pass below.`
+                  : `Thanks, ${formatParticipantName(application.full_name)}. Your application was received and is being reviewed.`
                 : 'Complete the hackathon application when you are ready to join the event.'}
             </p>
             {applicationError && !applicationLoading && (
@@ -112,6 +115,11 @@ export default function Dashboard() {
 
           {signOutError && <p role="alert" className="mb-4 text-sm text-red-700">{signOutError}</p>}
           <div className="flex flex-col sm:flex-row gap-3">
+            {!applicationLoading && !applicationError && application?.accepted && (
+              <Button onClick={() => navigate('/participant')} className="flex-1 h-12 font-bungee bg-[#FF2E2E] hover:bg-[#FF2E2E]/90 text-white">
+                <Ticket className="w-5 h-5 mr-2" /> Participant pass
+              </Button>
+            )}
             {!applicationLoading && !applicationError && !application && (
               <Button
                 onClick={() => navigate('/apply')}

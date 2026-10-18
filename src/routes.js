@@ -10,4 +10,6 @@ export const APP_PATHS = {
   login: '/login',
   register: '/register',
   dashboard: '/dashboard',
+  participant: '/participant',
+  organizer: '/organizer',
 };

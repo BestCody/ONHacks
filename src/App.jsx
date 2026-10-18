@@ -1,4 +1,4 @@
-import { Toaster } from "@/components/ui/toaster"
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import ScrollToTop from '@/components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -10,6 +10,9 @@ import VerifyEmail from '@/pages/VerifyEmail';
 import Dashboard from '@/pages/Dashboard';
 import LegalPage from '@/pages/LegalPage';
 import { APP_PATHS } from '@/routes';
+
+const Participant = lazy(() => import('@/pages/Participant'));
+const Organizer = lazy(() => import('@/pages/Organizer'));
 
 const NotFound = () => (
   <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
@@ -26,6 +29,7 @@ function App() {
     <AuthProvider>
       <Router>
         <ScrollToTop />
+        <Suspense fallback={<main className="min-h-screen bg-[#0d2243] p-8 text-white">Loading…</main>}>
         <Routes>
           <Route path={APP_PATHS.home} element={<Home />} />
           <Route path={APP_PATHS.apply} element={<ProtectedRoute><Apply /></ProtectedRoute>} />
@@ -35,6 +39,8 @@ function App() {
           <Route path={APP_PATHS.signIn} element={<AuthPage key="signin" mode="signin" />} />
           <Route path={APP_PATHS.signUp} element={<AuthPage key="signup" mode="signup" />} />
           <Route path={APP_PATHS.verifyEmail} element={<VerifyEmail />} />
+          <Route path={APP_PATHS.participant} element={<ProtectedRoute><Participant /></ProtectedRoute>} />
+          <Route path={APP_PATHS.organizer} element={<Organizer />} />
           <Route path={APP_PATHS.login} element={<Navigate to={APP_PATHS.signIn} replace />} />
           <Route path={APP_PATHS.register} element={<Navigate to={APP_PATHS.signUp} replace />} />
           <Route
@@ -47,7 +53,7 @@ function App() {
           />
           <Route path="*" element={<NotFound />} />
         </Routes>
-        <Toaster />
+        </Suspense>
       </Router>
     </AuthProvider>
   )

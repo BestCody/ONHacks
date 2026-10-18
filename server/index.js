@@ -13,6 +13,7 @@ import {
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP_PATHS } from '../src/routes.js';
+import { eventOperationsSchema, mountEventOperations } from './eventOperations.js';
 
 const { Pool } = pg;
 const scrypt = (password, salt, keyLength, options) => new Promise((resolve, reject) => {
@@ -208,7 +209,6 @@ const eventApplicationTable = `
     privacy_notice_accepted_at TIMESTAMPTZ,
     participant_terms_accepted_at TIMESTAMPTZ,
     code_of_conduct_accepted_at TIMESTAMPTZ,
-    status TEXT NOT NULL DEFAULT 'received',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
@@ -937,7 +937,7 @@ app.post('/api/auth/signout', async (request, response, next) => {
 app.get('/api/event-applications/me', requireAuth, async (request, response, next) => {
   try {
     const result = await pool.query(
-      `SELECT id, full_name, team, github, status, created_at
+      `SELECT id, full_name, team, github, accepted, created_at
        FROM event_applications
        WHERE user_id = $1 OR (user_id IS NULL AND email = $2)
        ORDER BY created_at DESC
@@ -990,7 +990,7 @@ app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applica
         (user_id, full_name, team, github, high_school, supplies, heard_about, email,
          privacy_notice_accepted_at, participant_terms_accepted_at, code_of_conduct_accepted_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), NOW())
-       RETURNING id, full_name, team, github, status, created_at`,
+       RETURNING id, full_name, team, github, created_at`,
       [
         request.user.id,
         application.fullName,
@@ -1013,6 +1013,10 @@ app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applica
 
   await sendApplicationReceipt(application);
   return response.status(201).json({ application: savedApplication });
+});
+
+mountEventOperations(app, {
+  pool, requireAuth, parseCookies, appendCookie, verifyPassword, hashSessionToken,
 });
 
 app.use(express.static(distDirectory));
@@ -1075,8 +1079,10 @@ async function start() {
     await pool.query(eventApplicationTable);
     await pool.query(eventApplicationConsentMigration);
     await pool.query(eventApplicationHeardAboutMigration);
+    await pool.query(eventOperationsSchema);
     await pool.query('DELETE FROM sessions WHERE expires_at <= NOW()');
     await pool.query('DELETE FROM email_verification_tokens WHERE expires_at <= NOW()');
+    await pool.query('DELETE FROM organizer_sessions WHERE expires_at <= NOW()');
   } else {
     console.warn('DATABASE_URL is not set; registration writes are disabled.');
   }

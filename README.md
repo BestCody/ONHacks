@@ -4,13 +4,14 @@ Standalone React/Vite registration site with an Express API and PostgreSQL stora
 
 ## Project layout
 
-- `src/pages/`: route-level pages (`Home`, `Apply`, authentication, and dashboard)
+- `src/pages/`: public, authentication, dashboard, participant, and organizer pages
 - `src/components/`: app-specific components
-- `src/components/ui/`: reusable shadcn/Radix UI primitives
+- `src/components/ui/`: shared button, input, and label primitives
 - `src/context/AuthContext.jsx`: session-aware frontend auth state
-- `src/hooks/`: shared React hooks
 - `src/lib/`: shared utilities
 - `server/index.js`: Express API, database initialization, and static hosting
+- `server/eventOperations.js`: participant and organizer APIs
+- `scripts/generate-badges.js`: local PDF badge-sheet generation
 - `public/`: self-hosted images, video, and fonts
 
 ## Local development
