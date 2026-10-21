@@ -83,8 +83,44 @@ const SPONSORS = [
     featured: false,
   },
   {
-    name: 'Unified Electricians',
-    logo: '/assets/sponsors/Unified Electricians.png',
+    name: 'Progressive Automations',
+    logo: '/assets/sponsors/progressive-automations.png',
+    href: 'https://www.progressiveautomations.com/',
+    featured: false,
+  },
+  {
+    name: 'Adaption Labs',
+    logo: '/assets/sponsors/adaption-labs.svg',
+    href: 'https://adaptionlabs.ai/',
+    featured: false,
+  },
+  {
+    name: 'Rawcology',
+    logo: '/assets/sponsors/rawcology.png',
+    href: 'https://rawcology.com/',
+    featured: false,
+  },
+  {
+    name: 'Pizzaville',
+    logo: '/assets/sponsors/pizzaville.png',
+    href: 'https://www.pizzaville.ca/',
+    featured: false,
+  },
+  {
+    name: 'Union Proud',
+    logo: '/assets/sponsors/union-proud.png',
+    href: 'https://www.unionproud.com/',
+    featured: false,
+  },
+  {
+    name: 'Arcadia Earth Toronto',
+    logo: '/assets/sponsors/arcadia-earth.png',
+    href: 'https://www.arcadiaearth.ca/',
+    featured: false,
+  },
+  {
+    name: 'Unified Technicians',
+    logo: '/assets/sponsors/Unified Technicians.png',
     href: 'https://www.ut.ca/',
     featured: true,
   },
@@ -92,6 +128,18 @@ const SPONSORS = [
     name: 'Tailscale',
     logo: '/assets/sponsors/tailscale.svg',
     href: 'https://tailscale.com/',
+    featured: true,
+  },
+  {
+    name: 'NewAE Technology',
+    logo: '/assets/sponsors/newae.png',
+    href: 'https://www.newae.com/',
+    featured: true,
+  },
+  {
+    name: 'Conestoga College',
+    logo: '/assets/sponsors/conestoga.svg',
+    href: 'https://www.conestogac.on.ca/applied-computer-science-and-information-technology',
     featured: true,
   },
 ];
@@ -133,9 +181,11 @@ function PartnerBubble({ partner }) {
 function SponsorBubble({ sponsor, featured = false }) {
   const sponsorThemeClass = sponsor.name === 'Simantic'
     ? ' sponsor-bubble--simantic'
-    : sponsor.name === 'Unified Electricians'
+    : sponsor.name === 'Unified Technicians'
       ? ' sponsor-bubble--unified'
-      : '';
+      : sponsor.name === 'Pizzaville'
+        ? ' sponsor-bubble--pizzaville'
+        : '';
   const bubbleClassName = `partner-bubble sponsor-bubble${featured ? ' sponsor-bubble--featured' : ' sponsor-bubble--small'}${sponsorThemeClass}`;
   const bubbleContent = (
       <img
