@@ -8,4 +8,5 @@ export const EVENT_DETAILS = {
   badgeWidthInches: 4,
   badgeHeightInches: 6,
   badgeGutterInches: 0.125,
+  mealLimitPerParticipant: 2,
 };

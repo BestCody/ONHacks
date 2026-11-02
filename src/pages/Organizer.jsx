@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Camera, FileUp, LockKeyhole, LogOut, Waves } from 'lucide-react';
+import { Camera, Check, FileUp, LockKeyhole, LogOut, Waves, X } from 'lucide-react';
 import { EVENT_DETAILS } from '@/eventDetails';
 
 async function requestJson(url, options = {}) {
@@ -9,6 +9,7 @@ async function requestJson(url, options = {}) {
   if (!response.ok) {
     const error = new Error(data.error || 'Request failed. Please try again.');
     error.status = response.status;
+    error.code = data.code;
     throw error;
   }
   return data;
@@ -28,8 +29,7 @@ export default function Organizer() {
   const [preview, setPreview] = useState(null);
   const [previewError, setPreviewError] = useState('');
   const [overtimeConfirmed, setOvertimeConfirmed] = useState(false);
-  const [scanResult, setScanResult] = useState(null);
-  const [scanError, setScanError] = useState('');
+  const [scanFeedback, setScanFeedback] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const videoRef = useRef(null);
@@ -111,7 +111,10 @@ export default function Organizer() {
       .catch((error) => {
         if (!cancelled) {
           setScanning(false);
-          setScanError(error?.message || 'Camera unavailable. Check camera permission and HTTPS.');
+          setScanFeedback({
+            type: 'error',
+            message: error?.message || 'Camera unavailable. Check camera permission and HTTPS.',
+          });
         }
       });
     return () => {
@@ -152,23 +155,26 @@ export default function Organizer() {
 
   async function countMeal(qrValue) {
     setBusy('scan');
-    setScanError('');
     try {
       const result = await organizerRequest('/api/organizer/meals/scan', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ qrValue }),
       });
-      setScanResult(result);
+      setScanFeedback({ type: 'success', ...result });
     } catch (error) {
-      setScanError(error.message);
+      setScanFeedback({
+        type: error.code === 'meal_limit_reached'
+          ? 'limit'
+          : error.code === 'participant_not_accepted' ? 'declined' : 'error',
+        message: error.message,
+      });
     } finally {
       setBusy('');
     }
   }
 
   function startScanner() {
-    setScanError('');
-    setScanResult(null);
+    setScanFeedback(null);
     scanLocked.current = false;
     setScanning(true);
   }
@@ -252,15 +258,36 @@ export default function Organizer() {
 
             <section className="rounded-3xl border border-white/15 bg-[#14365d] p-6 sm:p-8">
               <div className="flex items-center gap-3"><Camera className="text-cyan-200" /><h2 className="font-bungee text-xl">Scan meal QR</h2></div>
-              <p className="mt-2 text-sm text-cyan-100">Each successful scan adds one meal. Scanning pauses until you choose to scan again.</p>
+              <p className="mt-2 text-sm text-cyan-100">Each participant can receive up to {EVENT_DETAILS.mealLimitPerParticipant} meals. Scanning pauses until you choose to scan again.</p>
               {scanning && <video ref={videoRef} muted playsInline className="mt-5 aspect-video w-full max-w-lg rounded-xl bg-black object-cover" />}
               <div className="mt-5">
                 {scanning
                   ? <button type="button" onClick={stopScanner} className={actionButton}>Stop camera</button>
-                  : <button type="button" onClick={startScanner} disabled={busy === 'scan'} className={actionButton}>{scanResult ? 'Scan next badge' : 'Open camera'}</button>}
+                  : <button type="button" onClick={startScanner} disabled={busy === 'scan'} className={actionButton}>{scanFeedback ? 'Scan next badge' : 'Open camera'}</button>}
               </div>
-              {scanError && <p role="alert" className="mt-4 text-red-200">{scanError}</p>}
-              {scanResult && <div role="status" className="mt-5 rounded-xl bg-cyan-100 p-5 text-[#0d2243]"><p className="font-semibold">{scanResult.name}</p><p>Meals: {scanResult.previousCount} → {scanResult.mealCount}</p></div>}
+              {scanFeedback && (() => {
+                const successful = scanFeedback.type === 'success';
+                const declined = scanFeedback.type === 'declined' || scanFeedback.type === 'limit';
+                const cardStyle = successful
+                  ? 'bg-emerald-100 text-emerald-950'
+                  : declined ? 'bg-rose-100 text-rose-950' : 'bg-amber-100 text-amber-950';
+                const iconStyle = successful
+                  ? 'bg-emerald-700'
+                  : declined ? 'bg-rose-700' : 'bg-amber-600';
+                return (
+                  <div role={successful ? 'status' : 'alert'} className={`mt-5 flex items-start gap-4 rounded-xl p-5 ${cardStyle}`}>
+                    <span className={`flex size-10 shrink-0 items-center justify-center rounded-full text-white ${iconStyle}`} aria-hidden="true">
+                      {successful ? <Check size={22} strokeWidth={3} /> : declined ? <X size={22} strokeWidth={3} /> : <span className="text-xl font-bold">!</span>}
+                    </span>
+                    <div>
+                      <p className="font-semibold">{successful ? 'Meal recorded' : scanFeedback.type === 'limit' ? 'Meal limit reached' : declined ? 'Pass declined' : 'Scan error'}</p>
+                      {successful ? (
+                        <><p>{scanFeedback.name}</p><p>Meals: {scanFeedback.previousCount} → {scanFeedback.mealCount}</p></>
+                      ) : <p>{scanFeedback.message}</p>}
+                    </div>
+                  </div>
+                );
+              })()}
             </section>
 
             <section className="rounded-3xl border border-white/15 bg-[#14365d] p-6 sm:p-8">

@@ -329,15 +329,30 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
   app.post('/api/organizer/meals/scan', requireOrganizer, async (request, response, next) => {
     const qrValue = request.body?.qrValue;
     const match = typeof qrValue === 'string' && /^onhacks:meal:([a-f0-9]{64})$/.exec(qrValue);
-    if (!match) return response.status(400).json({ error: 'This is not an ONHacks meal QR code.' });
+    if (!match) return response.status(400).json({ code: 'invalid_meal_qr', error: 'This is not an ONHacks meal QR code.' });
     try {
       const result = await pool.query(
         `UPDATE event_applications SET meal_count = meal_count + 1
-         WHERE meal_qr_token = $1 AND accepted = TRUE
+         WHERE meal_qr_token = $1 AND accepted = TRUE AND meal_count < $2
          RETURNING full_name, meal_count`,
-        [match[1]],
+        [match[1], EVENT_DETAILS.mealLimitPerParticipant],
       );
-      if (!result.rowCount) return response.status(404).json({ error: 'Participant QR code not found or not accepted.' });
+      if (!result.rowCount) {
+        const participant = await pool.query(
+          'SELECT accepted, meal_count FROM event_applications WHERE meal_qr_token = $1',
+          [match[1]],
+        );
+        if (participant.rows[0]?.accepted && participant.rows[0].meal_count >= EVENT_DETAILS.mealLimitPerParticipant) {
+          return response.status(409).json({
+            code: 'meal_limit_reached',
+            error: `This participant has already received the maximum of ${EVENT_DETAILS.mealLimitPerParticipant} meals. No additional meal was recorded.`,
+          });
+        }
+        return response.status(404).json({
+          code: 'participant_not_accepted',
+          error: 'This participant is not accepted. No meal was recorded.',
+        });
+      }
       return response.json({
         name: formatParticipantName(result.rows[0].full_name),
         previousCount: result.rows[0].meal_count - 1,
