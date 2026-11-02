@@ -105,6 +105,16 @@ and `SITE_ORIGIN=https://onhacks.ca`. No organizer email notifications are
 sent. Email/password signup is unavailable if verification email is not
 configured. Applications still save if receipt delivery fails.
 
+### Generate printable badge sheets
+
+Run `npm run badges:generate` for Letter paper or
+`npm run badges:generate -- tabloid` for Tabloid paper. The script creates a
+PDF in the git-ignored `prints/` folder from accepted participants whose badges
+have not already been generated. It requires a reachable `DATABASE_URL` in
+your local environment or `.env` file. See the
+[badge generator](scripts/generate-badges.js) and
+[badge layout](server/printBadges.js).
+
 ## Deploy on Render
 
 Use a Render **Web Service**, not a Static Site. The Express server serves the

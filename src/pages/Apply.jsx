@@ -28,7 +28,6 @@ export default function Apply() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [done, setDone] = useState(false);
   const [applicationCheck, setApplicationCheck] = useState('loading');
   const [checkRetry, setCheckRetry] = useState(0);
 
@@ -144,45 +143,13 @@ export default function Apply() {
         throw new Error(data.error || 'Submission failed. Please try again.');
       }
 
-      setDone(true);
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Submission failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
-
-  if (done) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center px-4"
-        style={{
-          backgroundImage: `url(${BG})`,
-          backgroundRepeat: 'no-repeat',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundColor: '#163d6b',
-        }}
-      >
-        <div className="max-w-md text-center bg-white rounded-2xl shadow-xl p-10">
-          <h2 className="font-bubbly text-4xl text-[#FF2E2E] mb-3">
-            Application received
-          </h2>
-
-          <p className="text-black/70 mb-8">
-            Thanks for applying. Your application was received and is being reviewed.
-          </p>
-
-          <Button
-            onClick={() => navigate('/')}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            Back to home
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   if (applicationCheck !== 'ready') {
     return (
