@@ -871,13 +871,15 @@
 
   .sponsor-bubble--simantic,
   .sponsor-bubble--unified,
-  .sponsor-bubble--pizzaville {
+  .sponsor-bubble--pizzaville,
+  .sponsor-bubble--circles-squares {
     background: #000;
   }
 
   .sponsor-bubble--simantic .sponsor-logo,
   .sponsor-bubble--unified .sponsor-logo,
-  .sponsor-bubble--pizzaville .sponsor-logo {
+  .sponsor-bubble--pizzaville .sponsor-logo,
+  .sponsor-bubble--circles-squares .sponsor-logo {
     filter: contrast(3.5);
     mix-blend-mode: normal;
   }

@@ -17,3 +17,6 @@
 - `sponsors/cobs-bread.svg` — COBS Bread logo from the [official COBS Bread website](https://www.cobsbread.com/). Used to identify its sponsorship.
 - `sponsors/n8n.svg` — n8n logo from the [official n8n website](https://n8n.io/). Used to identify its sponsorship.
 - `sponsors/anakin.png` — Anakin logo from the [official Anakin website](https://anakin.io/). Used to identify its sponsorship.
+- `sponsors/rich-print-solutions.webp` — Rich Print Solutions logo from the [official Rich Print Solutions website](https://richprintsolutions.com/). Used to identify its sponsorship.
+- `sponsors/turtle-jacks.svg` — Turtle Jack's logo from the [official Turtle Jack's website](https://turtlejacks.com/). Used to identify its sponsorship.
+- `sponsors/circles-and-squares.png` — Circles & Squares Bakery logo from the [official Circles & Squares website](https://www.circlesandsquares.ca/). Used to identify its sponsorship.

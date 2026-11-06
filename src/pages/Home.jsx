@@ -167,6 +167,24 @@ const SPONSORS = [
     featured: false,
   },
   {
+    name: 'Rich Print Solutions',
+    logo: '/assets/sponsors/rich-print-solutions.webp',
+    href: 'https://richprintsolutions.com/',
+    featured: false,
+  },
+  {
+    name: "Turtle Jack's",
+    logo: '/assets/sponsors/turtle-jacks.svg',
+    href: 'https://turtlejacks.com/',
+    featured: false,
+  },
+  {
+    name: 'Circles & Squares Bakery',
+    logo: '/assets/sponsors/circles-and-squares.png',
+    href: 'https://www.circlesandsquares.ca/',
+    featured: false,
+  },
+  {
     name: 'Unified Technicians',
     logo: '/assets/sponsors/Unified Technicians.png',
     href: 'https://www.ut.ca/',
@@ -233,7 +251,9 @@ function SponsorBubble({ sponsor, featured = false }) {
       ? ' sponsor-bubble--unified'
       : sponsor.name === 'Pizzaville'
         ? ' sponsor-bubble--pizzaville'
-        : '';
+        : sponsor.name === 'Circles & Squares Bakery'
+          ? ' sponsor-bubble--circles-squares'
+          : '';
   const bubbleClassName = `partner-bubble sponsor-bubble${featured ? ' sponsor-bubble--featured' : ' sponsor-bubble--small'}${sponsorThemeClass}`;
   const bubbleContent = (
       <img
