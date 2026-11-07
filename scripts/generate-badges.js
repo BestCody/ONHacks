@@ -4,14 +4,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from 'dotenv';
 import pg from 'pg';
-import { createBadgePdf } from '../server/printBadges.js';
+import { createBadgePdf, paperLayouts } from '../server/printBadges.js';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 config({ path: path.join(projectRoot, '.env') });
 
 const [paper = 'letter', ...extraArgs] = process.argv.slice(2);
-if (!['letter', 'tabloid'].includes(paper) || extraArgs.length) {
-  throw new Error('Usage: npm run badges:generate -- [letter|tabloid]');
+if (!Object.hasOwn(paperLayouts, paper) || extraArgs.length) {
+  throw new Error('Usage: npm run badges:generate -- [letter|tabloid|a4]');
 }
 if (!process.env.DATABASE_URL) {
   throw new Error('Set DATABASE_URL in your local .env before generating badges.');
@@ -39,13 +39,13 @@ try {
 
   const result = await client.query(
     `SELECT id, full_name, meal_qr_token FROM event_applications
-     WHERE accepted = TRUE AND printed = FALSE
+     WHERE accepted = TRUE AND rsvp_at IS NOT NULL AND printed = FALSE
      ORDER BY id FOR UPDATE`,
   );
   if (!result.rowCount) {
     await client.query('ROLLBACK');
     transactionOpen = false;
-    console.log('No accepted participants need badges.');
+    console.log('No confirmed participants need badges.');
   } else {
     const badges = [];
     for (const row of result.rows) {
@@ -58,10 +58,14 @@ try {
         );
         token = updated.rows[0].meal_qr_token;
       }
-      badges.push({ name: row.full_name, qrValue: `onhacks:meal:${token}` });
+      badges.push({ id: Number(row.id), name: row.full_name, qrValue: `onhacks:meal:${token}` });
     }
 
-    const pdf = await createBadgePdf(badges, paper);
+    const { pdf, printed, skipped } = await createBadgePdf(badges, paper);
+    for (const { badge, reason } of skipped) {
+      console.error(`Skipped application #${badge.id}: ${reason} Fix their full_name in the database, then run this again for them.`);
+    }
+    if (!pdf) throw new Error('None of the confirmed participants could be printed. Nothing was marked printed.');
     const printsDirectory = path.join(projectRoot, 'prints');
     await mkdir(printsDirectory, { recursive: true });
     const [realRoot, realPrints] = await Promise.all([
@@ -89,17 +93,21 @@ try {
 
     const marked = await client.query(
       `UPDATE event_applications SET printed = TRUE
-       WHERE id = ANY($1::bigint[]) AND accepted = TRUE AND printed = FALSE`,
-      [result.rows.map((row) => row.id)],
+       WHERE id = ANY($1::bigint[]) AND accepted = TRUE AND rsvp_at IS NOT NULL AND printed = FALSE`,
+      [printed.map((badge) => badge.id)],
     );
-    if (marked.rowCount !== result.rowCount) {
+    if (marked.rowCount !== printed.length) {
       throw new Error('Badge eligibility changed. No participants were marked printed.');
     }
     commitStarted = true;
     await client.query('COMMIT');
     transactionOpen = false;
     committed = true;
-    console.log(`Saved ${badges.length} badge(s) to ${savedPath} and marked them printed.`);
+    console.log(`Saved ${printed.length} badge(s) to ${savedPath} and marked them printed.`);
+    if (skipped.length) {
+      console.error(`${skipped.length} badge(s) were skipped (listed above).`);
+      process.exitCode = 1;
+    }
   }
 } catch (error) {
   if (transactionOpen) await client.query('ROLLBACK').catch(() => {});

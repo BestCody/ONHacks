@@ -103,19 +103,32 @@ function wrapName(pdf, words, size, maxWidth) {
   return lines;
 }
 
-function drawName(pdf, name, fonts, x, y) {
-  const displayName = formatParticipantName(name);
-  const words = nameRuns(displayName, fonts);
-  const nameWidth = 3.15 * point;
-  const nameHeight = 0.48 * point;
-  let layout;
-  let size;
-  for (size = 26; size >= 7.5; size -= 0.5) {
-    layout = wrapName(pdf, words, size, nameWidth);
-    if (layout.length * size * 1.15 <= nameHeight) break;
-  }
-  if (size < 7.5) throw badgeNameError(displayName, 'the name does not fit in the badge name area');
+const nameHeight = 0.48 * point;
+// Emoji and other pictographs aren't in the badge fonts, so they are dropped from a name
+// rather than leaving that hacker without a badge.
+const pictographs = /[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{So}️‍⃣]/gu;
 
+function layoutName(pdf, name, fonts) {
+  const words = nameRuns(name, fonts);
+  for (let size = 26; size >= 7.5; size -= 0.5) {
+    const layout = wrapName(pdf, words, size, 3.15 * point);
+    if (layout.length * size * 1.15 <= nameHeight) return { layout, size };
+  }
+  throw badgeNameError(name, 'the name does not fit in the badge name area');
+}
+
+function fitName(pdf, rawName, fonts) {
+  const displayName = formatParticipantName(rawName);
+  try {
+    return layoutName(pdf, displayName, fonts);
+  } catch (error) {
+    const simplified = displayName.replace(pictographs, '').replace(/\s+/g, ' ').trim();
+    if (error.code !== 'UNSUPPORTED_BADGE_NAME' || !simplified || simplified === displayName) throw error;
+    return layoutName(pdf, simplified, fonts);
+  }
+}
+
+function drawName(pdf, { layout, size }, x, y) {
   const lineHeight = size * 1.15;
   const top = y + 3.05 * point + (nameHeight - layout.length * lineHeight) / 2;
   for (const [index, line] of layout.entries()) {
@@ -128,9 +141,18 @@ function drawName(pdf, name, fonts, x, y) {
   }
 }
 
+// Page sizes in inches, width x height. Two 4-inch badges plus the gutter (8.125 in) leave
+// under 2 mm per side on portrait A4, which printers clip, so A4 is laid out sideways.
+export const paperLayouts = {
+  letter: { size: [8.5, 11], rows: 1 },
+  tabloid: { size: [11, 17], rows: 2 },
+  a4: { size: [297 / 25.4, 210 / 25.4], rows: 1 },
+};
+
 export async function createBadgePdf(badges, paper) {
-  const dimensions = paper === 'tabloid' ? [11, 17] : [8.5, 11];
-  const rows = paper === 'tabloid' ? 2 : 1;
+  const layout = paperLayouts[paper];
+  if (!layout) throw new Error(`Unknown paper size: ${paper}`);
+  const { size: dimensions, rows } = layout;
   const perPage = 2 * rows;
   const width = EVENT_DETAILS.badgeWidthInches;
   const height = EVENT_DETAILS.badgeHeightInches;
@@ -154,8 +176,28 @@ export async function createBadgePdf(badges, paper) {
     return { name, face: fontkit.create(buffer) };
   });
 
+  // Lay out every name first; a name the bundled fonts can't render is reported and skipped
+  // so it doesn't stop everyone else's badge.
+  const prepared = [];
+  const skipped = [];
+  for (const badge of badges) {
+    try {
+      prepared.push({ badge, name: fitName(pdf, badge.name, fonts) });
+    } catch (error) {
+      if (error.code !== 'UNSUPPORTED_BADGE_NAME') {
+        pdf.destroy();
+        throw error;
+      }
+      skipped.push({ badge, reason: error.message });
+    }
+  }
+  if (!prepared.length) {
+    pdf.destroy();
+    return { pdf: null, printed: [], skipped };
+  }
+
   try {
-    for (const [index, badge] of badges.entries()) {
+    for (const [index, { badge, name }] of prepared.entries()) {
       if (index && index % perPage === 0) pdf.addPage();
       const sheetIndex = index % perPage;
       const x = (left + (sheetIndex % 2) * (width + gutter)) * point;
@@ -164,7 +206,7 @@ export async function createBadgePdf(badges, paper) {
 
       pdf.fillColor('#FFFFFF').rect(x + 0.4 * point, y + 3.03 * point, 3.2 * point, 0.52 * point).fill();
       pdf.rect(x + 1.055 * point, y + 3.67 * point, 1.89 * point, 1.89 * point).fill();
-      drawName(pdf, badge.name, fonts, x, y);
+      drawName(pdf, name, x, y);
 
       const qrData = await QRCode.toDataURL(badge.qrValue, {
         errorCorrectionLevel: 'M', margin: 4, width: 700,
@@ -185,7 +227,7 @@ export async function createBadgePdf(badges, paper) {
       }
     }
     pdf.end();
-    return await output;
+    return { pdf: await output, printed: prepared.map(({ badge }) => badge), skipped };
   } catch (error) {
     pdf.destroy();
     throw error;

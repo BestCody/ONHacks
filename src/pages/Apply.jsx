@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 
 import { ArrowLeft, Loader2, Send } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { APPLICATIONS_CLOSED_MESSAGE, applicationsClosed } from '@/eventDetails';
 
 const BG = '/assets/apply-bg.webp';
 
@@ -140,7 +141,7 @@ export default function Apply() {
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.error || 'Submission failed. Please try again.');
+        throw new Error(Object.values(data.errors || {}).join(' ') || data.error || 'Submission failed. Please try again.');
       }
 
       navigate('/dashboard', { replace: true });
@@ -175,6 +176,29 @@ export default function Apply() {
               Try again
             </Button>
           )}
+        </section>
+      </main>
+    );
+  }
+
+  if (applicationsClosed()) {
+    return (
+      <main
+        className="min-h-screen flex items-center justify-center px-4"
+        style={{
+          backgroundImage: `url(${BG})`,
+          backgroundRepeat: 'no-repeat',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundColor: '#163d6b',
+        }}
+      >
+        <section className="w-full max-w-md text-center bg-white rounded-2xl shadow-xl p-8 md:p-10">
+          <h1 className="font-bubbly text-3xl text-[#0A1A2A] mb-3">Applications closed</h1>
+          <p className="text-black/70 mb-5">{APPLICATIONS_CLOSED_MESSAGE} Questions? Email hello@onhacks.ca.</p>
+          <Button type="button" onClick={() => navigate('/dashboard')} className="bg-[#FF2E2E] hover:bg-[#FF2E2E]/90 text-white">
+            Back to dashboard
+          </Button>
         </section>
       </main>
     );
@@ -301,7 +325,7 @@ export default function Apply() {
               />
 
               <p className="text-xs text-black/50">
-                Enter your GitHub username.
+                Enter your GitHub username or profile link.
               </p>
             </div>
 
@@ -309,7 +333,7 @@ export default function Apply() {
 
             <div className="space-y-2">
               <Label>
-                You or your team need to be in high-school to
+                You or your team need to be in high school to
                 participate. Are you in high school? *
               </Label>
 

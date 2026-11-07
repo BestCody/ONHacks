@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
-import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
+import { rateLimit } from 'express-rate-limit';
 import { OAuth2Client } from 'google-auth-library';
 import helmet from 'helmet';
 import pg from 'pg';
@@ -12,8 +12,10 @@ import {
 } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { APPLICATIONS_CLOSED_MESSAGE, applicationsClosed } from '../src/eventDetails.js';
 import { APP_PATHS } from '../src/routes.js';
-import { eventOperationsSchema, mountEventOperations } from './eventOperations.js';
+import { clientIpKey } from './clientIp.js';
+import { eventOperationsSchema, mountEventOperations, purgeExpiredWaivers } from './eventOperations.js';
 
 const { Pool } = pg;
 const scrypt = (password, salt, keyLength, options) => new Promise((resolve, reject) => {
@@ -65,8 +67,15 @@ const passwordHashOptions = {
 const pool = databaseUrl
   ? new Pool({
       connectionString: databaseUrl,
+      connectionTimeoutMillis: 10_000,
     })
   : null;
+// A dropped database connection emits 'error' on the pool (for idle clients) or on the
+// client itself (when checked out between queries). Unhandled, either crashes the server.
+pool?.on('error', (error) => console.error('PostgreSQL idle client error:', error.message));
+pool?.on('connect', (client) => {
+  client.on('error', (error) => console.error('PostgreSQL client error:', error.message));
+});
 
 const rateLimitResponse = (message) => (_request, response) => {
   response.status(429).json({ error: message });
@@ -76,12 +85,15 @@ const normalizeEmailKey = (request) => {
   const email = typeof request.body?.email === 'string'
     ? request.body.email.trim().toLowerCase()
     : '';
-  return email || `ip:${ipKeyGenerator(request.ip)}`;
+  return email || `ip:${clientIpKey(request)}`;
 };
 
+// Everyone at the venue shares one Wi-Fi address, so this limit must cover a whole lunch
+// line of passes and dashboards plus the organizers' meal scanner.
 const apiRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 2000,
+  limit: 10_000,
+  keyGenerator: clientIpKey,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   handler: rateLimitResponse('Too many requests. Please try again shortly.'),
@@ -90,6 +102,7 @@ const apiRateLimit = rateLimit({
 const signInIpRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 300,
+  keyGenerator: clientIpKey,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   handler: rateLimitResponse('Too many sign-in attempts from this network. Please try again shortly.'),
@@ -108,6 +121,7 @@ const signInEmailRateLimit = rateLimit({
 const signUpIpRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 300,
+  keyGenerator: clientIpKey,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   handler: rateLimitResponse('Too many account creation attempts from this network. Please try again shortly.'),
@@ -125,6 +139,7 @@ const signUpEmailRateLimit = rateLimit({
 const applicationIpRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 300,
+  keyGenerator: clientIpKey,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   handler: rateLimitResponse('Too many application submissions from this network. Please try again shortly.'),
@@ -134,6 +149,8 @@ const applicationEmailRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 3,
   keyGenerator: (request) => request.user.email,
+  // Only a successful submission sends a receipt; a failed attempt shouldn't lock someone out.
+  skipFailedRequests: true,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   handler: rateLimitResponse('Too many application submissions for this email. Please try again later.'),
@@ -142,6 +159,9 @@ const applicationEmailRateLimit = rateLimit({
 const verificationIpRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 30,
+  keyGenerator: clientIpKey,
+  // Count only failed attempts, so a classroom verifying on one school network isn't blocked.
+  skipSuccessfulRequests: true,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   handler: rateLimitResponse('Too many verification requests. Please try again later.'),
@@ -355,7 +375,9 @@ function validateAuthInput(body = {}, { requireName = false } = {}) {
 function safeReturnTo(value) {
   const candidate = clean(value);
   if (/^\/(?![\/\\])[^\\\u0000-\u001f]*$/.test(candidate)) {
-    return new URL(candidate, 'http://localhost').pathname;
+    // Dot segments can normalize to a protocol-relative path ("/.//evil.com" -> "//evil.com").
+    const { pathname } = new URL(candidate, 'http://localhost');
+    if (!/^\/[\/\\]/.test(pathname)) return pathname;
   }
   return '/dashboard';
 }
@@ -937,7 +959,7 @@ app.post('/api/auth/signout', async (request, response, next) => {
 app.get('/api/event-applications/me', requireAuth, async (request, response, next) => {
   try {
     const result = await pool.query(
-      `SELECT id, full_name, team, github, accepted, created_at
+      `SELECT id, full_name, team, github, accepted, rsvp_at, created_at
        FROM event_applications
        WHERE user_id = $1 OR (user_id IS NULL AND email = $2)
        ORDER BY created_at DESC
@@ -956,6 +978,10 @@ app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applica
     return response.status(503).json({
       error: 'Applications are temporarily unavailable. Please try again later.',
     });
+  }
+
+  if (applicationsClosed()) {
+    return response.status(403).json({ code: 'applications_closed', error: APPLICATIONS_CLOSED_MESSAGE });
   }
 
   const { application, errors } = validateEventApplication({
@@ -1051,9 +1077,21 @@ app.use((request, response) => {
   return response.status(404).send('Not found');
 });
 
-app.use((error, _request, response, _next) => {
+app.use((error, request, response, _next) => {
   if (error?.type === 'entity.parse.failed') {
     return response.status(400).json({ error: 'Request body must be valid JSON.' });
+  }
+  if (error?.type === 'entity.too.large') {
+    return response.status(413).json({
+      error: request.path === '/api/participant/waiver/files'
+        ? 'That file is too large. Each file must be 5 MB or smaller.'
+        : 'That upload is too large.',
+    });
+  }
+  // Other body-reading problems (an aborted phone upload, an unsupported encoding) are the
+  // client's, not server faults.
+  if (error?.expose && error.status >= 400 && error.status < 500) {
+    return response.status(error.status).json({ error: "We couldn't read that request. Please try again." });
   }
   console.error(error);
   return response.status(500).json({ error: 'Something went wrong.' });
@@ -1083,6 +1121,12 @@ async function start() {
     await pool.query('DELETE FROM sessions WHERE expires_at <= NOW()');
     await pool.query('DELETE FROM email_verification_tokens WHERE expires_at <= NOW()');
     await pool.query('DELETE FROM organizer_sessions WHERE expires_at <= NOW()');
+    // Signed waivers are kept only as long as the privacy notice promises.
+    const purgeWaivers = () => purgeExpiredWaivers(pool)
+      .then((count) => { if (count) console.log(`Deleted ${count} expired waiver files.`); })
+      .catch((error) => console.error('Waiver cleanup failed:', error));
+    await purgeWaivers();
+    setInterval(purgeWaivers, 12 * 60 * 60 * 1000).unref();
   } else {
     console.warn('DATABASE_URL is not set; registration writes are disabled.');
   }

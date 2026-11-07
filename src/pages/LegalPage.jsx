@@ -1,15 +1,19 @@
 import { Link } from 'react-router-dom';
+import { EVENT_DETAILS } from '@/eventDetails';
 
 const DOCUMENTS = {
   privacy: {
     title: 'Privacy Notice',
     intro:
-      'This notice explains how ONHacks collects and uses information when you create an account or submit an application.',
+      'This notice explains how ONHacks collects and uses information when you create an account, submit an application, or take part in the event.',
     sections: [
       {
         heading: 'Information we collect',
         paragraphs: [
           'We collect the information you provide in your account and application, including your name, email address, team status, GitHub profile, high-school confirmation, supplies confirmation, and how you heard about ONHacks.',
+          'If you are accepted, we also collect the signed participant waiver you upload. It includes your date of birth, your emergency contact, your parent or guardian’s name and signature, and any medical information you choose to share.',
+          'If you RSVP, we record when you confirmed your spot and create a meal QR code that appears on your participant pass and printed name badge. Organizers scan it at lunch and dinner to record your meals.',
+          'After projects are submitted on Devpost, we use the team members’ email addresses in Devpost’s project export to match your team to your application and schedule your judging room and pitch time.',
           'We also keep technical information needed to secure the service, such as session and rate-limiting information.',
           'We use cookie-free Cloudflare Web Analytics to measure visits, page views, and website performance. It does not track individual visitors across websites.',
         ],
@@ -25,6 +29,7 @@ const DOCUMENTS = {
         heading: 'Access and service providers',
         paragraphs: [
           'Apart from the sponsor sharing described below, access is limited to the ONHacks organizing team and service providers that help us host, secure, and operate the website and database. Those providers may process information outside Canada.',
+          `Uploaded waivers can only be viewed by the ONHacks organizing team. They are deleted from our website automatically ${EVENT_DETAILS.waiverRetentionDays} days after upload, and organizers delete any copies they download to check them by then.`,
           'We keep information only for as long as it is reasonably needed for application review, event operations, safety, legal, and security purposes, after which it is deleted or anonymized where practical.',
         ],
       },
@@ -46,7 +51,7 @@ const DOCUMENTS = {
       {
         heading: 'Participants under 18',
         paragraphs: [
-          'If you are under 13, ask a parent or legal guardian to review this notice and provide any consent required before submitting an application. Participants aged 13 to 18 should review it with a parent or guardian if they have questions.',
+          'If you are under 13, ask a parent or legal guardian to review this notice and provide any consent required before submitting an application. Participants aged 13 to 17 should review it with a parent or guardian if they have questions. If you are under 18, a parent or guardian must also sign your participant waiver.',
         ],
       },
     ],
@@ -60,6 +65,12 @@ const DOCUMENTS = {
         heading: 'Eligibility and event format',
         paragraphs: [
           'ONHacks is a free, in-person, 12-hour hackathon for high-school students. Teams may have up to four people. You must provide accurate information and follow any instructions from the organizing team.',
+        ],
+      },
+      {
+        heading: 'Waiver and RSVP',
+        paragraphs: [
+          `If you are accepted, you must upload a signed participant waiver (also signed by a parent or guardian if you are under 18) and RSVP on your dashboard by ${EVENT_DETAILS.rsvpDeadlineLabel}. Only participants who RSVP receive an event pass and name badge.`,
         ],
       },
       {

@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { EVENT_DETAILS } from '@/eventDetails';
 
 export default function Participant() {
-  const { signOut } = useAuth();
+  const { signOut: endSession } = useAuth();
   const [participant, setParticipant] = useState(null);
   const [qrImage, setQrImage] = useState('');
   const [error, setError] = useState('');
@@ -19,8 +19,13 @@ export default function Participant() {
       if (!active || inFlight) return;
       inFlight = true;
       try {
-        const response = await fetch('/api/participant/me', { credentials: 'include' });
-        const data = await response.json();
+        let response;
+        try {
+          response = await fetch('/api/participant/me', { credentials: 'include' });
+        } catch {
+          throw new Error("We couldn't refresh your pass. Check your connection and tap Retry.");
+        }
+        const data = await response.json().catch(() => ({}));
         if (!response.ok) {
           if (active && (response.status === 401 || response.status === 403)) {
             setParticipant(null);
@@ -51,7 +56,9 @@ export default function Participant() {
       if (document.visibilityState === 'visible') refresh();
     }
     refresh();
-    const timer = window.setInterval(refreshIfVisible, 30_000);
+    // Everyone at the venue shares one Wi-Fi address and one API rate limit, so the pass
+    // checks for judging and access changes every two minutes rather than continuously.
+    const timer = window.setInterval(refreshIfVisible, 120_000);
     window.addEventListener('focus', refreshIfVisible);
     document.addEventListener('visibilitychange', refreshIfVisible);
     return () => {
@@ -61,6 +68,14 @@ export default function Participant() {
       document.removeEventListener('visibilitychange', refreshIfVisible);
     };
   }, [refreshKey]);
+
+  async function signOut() {
+    try {
+      await endSession();
+    } catch {
+      setError('Could not sign out. Please try again.');
+    }
+  }
 
   return (
     <main className="min-h-screen bg-black px-4 py-8 text-white sm:py-12">

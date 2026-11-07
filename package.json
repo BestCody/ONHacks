@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "organizer:hash-password": "node scripts/hash-organizer-password.js",
     "badges:generate": "node scripts/generate-badges.js",
+    "applicants": "node scripts/applicants.js",
     "start": "node server/index.js"
   },
   "dependencies": {

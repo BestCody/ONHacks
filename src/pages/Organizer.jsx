@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Camera, Check, FileUp, LockKeyhole, LogOut, Waves, X } from 'lucide-react';
+import { Camera, Check, ClipboardCheck, FileUp, LockKeyhole, LogOut, Waves, X } from 'lucide-react';
 import { EVENT_DETAILS } from '@/eventDetails';
 
 async function requestJson(url, options = {}) {
-  const response = await fetch(url, { credentials: 'include', ...options });
+  let response;
+  try {
+    response = await fetch(url, { credentials: 'include', ...options });
+  } catch {
+    const error = new Error("Can't reach the server. Check the Wi-Fi connection and try again.");
+    error.status = 0;
+    throw error;
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(data.error || 'Request failed. Please try again.');
@@ -17,6 +24,12 @@ async function requestJson(url, options = {}) {
 
 const actionButton = 'rounded-xl bg-[#ff473d] px-5 py-3 font-bungee text-sm text-white transition hover:bg-[#e72e2e] disabled:cursor-not-allowed disabled:opacity-[0.45]';
 
+function formatWhen(value) {
+  return new Date(value).toLocaleString('en-CA', {
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto',
+  });
+}
+
 export default function Organizer() {
   const [session, setSession] = useState('checking');
   const [password, setPassword] = useState('');
@@ -24,17 +37,21 @@ export default function Organizer() {
   const [overview, setOverview] = useState(null);
   const [pageError, setPageError] = useState('');
   const [busy, setBusy] = useState('');
-  const [roomCount, setRoomCount] = useState(1);
+  const [roomCount, setRoomCount] = useState(EVENT_DETAILS.defaultJudgingRooms);
   const [startTime, setStartTime] = useState(EVENT_DETAILS.defaultJudgingStart);
   const [preview, setPreview] = useState(null);
   const [previewError, setPreviewError] = useState('');
   const [overtimeConfirmed, setOvertimeConfirmed] = useState(false);
+  const [unmatchedConfirmed, setUnmatchedConfirmed] = useState(false);
   const [scanFeedback, setScanFeedback] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  const [participants, setParticipants] = useState(null);
+  const [participantsError, setParticipantsError] = useState('');
   const videoRef = useRef(null);
   const scannerControls = useRef(null);
   const scanLocked = useRef(false);
+  const previewFingerprint = useRef('');
 
   async function organizerRequest(url, options) {
     try {
@@ -45,6 +62,7 @@ export default function Organizer() {
         setScanning(false);
         setOverview(null);
         setPreview(null);
+        setParticipants(null);
         setSession('signed-out');
         setPageError('');
         setLoginError('Organizer session expired. Sign in again.');
@@ -67,10 +85,47 @@ export default function Organizer() {
     return () => { active = false; };
   }, []);
 
+  async function loadParticipants() {
+    try {
+      const data = await organizerRequest('/api/organizer/participants');
+      setParticipants(data.participants);
+      setParticipantsError('');
+    } catch (error) {
+      setParticipantsError(error.message);
+    }
+  }
+
   useEffect(() => {
     if (session !== 'signed-in') return;
     loadOverview().catch((error) => setPageError(error.message));
+    loadParticipants();
   }, [session]);
+
+  async function resetWaiver(participant) {
+    if (!window.confirm(`Reset ${participant.name}'s waiver? Their uploaded files and RSVP will be deleted, and they will need to upload the waiver again. If RSVPs have closed, click Confirm RSVP once they resubmit.`)) return;
+    setBusy(`reset-${participant.id}`);
+    try {
+      await organizerRequest(`/api/organizer/participants/${participant.id}/waiver/reset`, { method: 'POST' });
+      await Promise.all([loadParticipants(), loadOverview()]);
+    } catch (error) {
+      setParticipantsError(error.message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function confirmRsvp(participant) {
+    if (!window.confirm(`Confirm ${participant.name}'s RSVP? Check that their waiver is signed first. They will get their event pass right away.`)) return;
+    setBusy(`rsvp-${participant.id}`);
+    try {
+      await organizerRequest(`/api/organizer/participants/${participant.id}/rsvp`, { method: 'POST' });
+      await Promise.all([loadParticipants(), loadOverview()]);
+    } catch (error) {
+      setParticipantsError(error.message);
+    } finally {
+      setBusy('');
+    }
+  }
 
   useEffect(() => {
     if (session !== 'signed-in' || !overview || overview.settings) return;
@@ -78,7 +133,16 @@ export default function Organizer() {
     const timer = window.setTimeout(() => {
       organizerRequest(`/api/organizer/schedule-preview?rooms=${encodeURIComponent(roomCount)}&start=${encodeURIComponent(startTime)}`)
         .then((data) => {
-          if (active) { setPreview(data); setPreviewError(''); setOvertimeConfirmed(false); }
+          if (!active) return;
+          // Refreshing the overview re-requests the same preview; keep the overtime
+          // confirmation unless the schedule itself changed.
+          if (data.fingerprint !== previewFingerprint.current) {
+            setOvertimeConfirmed(false);
+            setUnmatchedConfirmed(false);
+          }
+          previewFingerprint.current = data.fingerprint;
+          setPreview(data);
+          setPreviewError('');
         })
         .catch((error) => {
           if (active) { setPreview(null); setPreviewError(error.message); }
@@ -145,11 +209,14 @@ export default function Organizer() {
 
   async function signOut() {
     scannerControls.current?.stop();
+    scannerControls.current = null;
+    setScanning(false);
     try {
       await requestJson('/api/organizer/signout', { method: 'POST' });
       setSession('signed-out');
       setOverview(null);
       setPreview(null);
+      setParticipants(null);
     } catch (error) { setPageError(error.message); }
   }
 
@@ -163,10 +230,15 @@ export default function Organizer() {
       setScanFeedback({ type: 'success', ...result });
     } catch (error) {
       setScanFeedback({
-        type: error.code === 'meal_limit_reached'
-          ? 'limit'
-          : error.code === 'participant_not_accepted' ? 'declined' : 'error',
-        message: error.message,
+        type: error.code === 'meal_recently_scanned'
+          ? 'repeat'
+          : error.code === 'meal_limit_reached'
+            ? 'limit'
+            : error.code === 'participant_not_accepted' ? 'declined' : 'error',
+        // A repeat scan is never counted twice, so after a dropped connection it is safe to rescan.
+        message: error.status === 0
+          ? 'No response from the server. Scan the badge again; a repeat scan is never counted twice.'
+          : error.message,
       });
     } finally {
       setBusy('');
@@ -216,7 +288,9 @@ export default function Organizer() {
       await organizerRequest('/api/organizer/assign', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rooms: roomCount, start: startTime,
-          fingerprint: preview.fingerprint, allowOvertime: preview.overtime && overtimeConfirmed }),
+          fingerprint: preview.fingerprint,
+          allowOvertime: preview.overtime && overtimeConfirmed,
+          allowUnmatched: preview.unmatchedCount > 0 && unmatchedConfirmed }),
       });
       await loadOverview();
       setPreview(null);
@@ -254,7 +328,46 @@ export default function Organizer() {
         ) : (
           <div className="mt-8 space-y-6">
             {pageError && <p role="alert" className="rounded-xl bg-red-100 p-4 text-red-900">{pageError}</p>}
-            {overview && <p className="text-sm text-cyan-100">{overview.acceptedCount} accepted participants · {overview.projects.length} imported projects · {overview.unprintedCount} badges not yet generated</p>}
+            {overview && <p className="text-sm text-cyan-100">{overview.acceptedCount} accepted participants · {overview.waiverCount} waivers submitted · {overview.rsvpCount} RSVPs · {overview.projects.length} imported projects · {overview.unprintedCount} badges not yet generated</p>}
+
+            <section className="rounded-3xl border border-white/15 bg-[#14365d] p-6 sm:p-8">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3"><ClipboardCheck className="text-cyan-200" /><h2 className="font-bungee text-xl">Waivers &amp; RSVPs</h2></div>
+                <button type="button" onClick={() => { loadParticipants(); loadOverview().catch(() => {}); }} className="text-sm text-cyan-100 underline hover:text-white">Refresh</button>
+              </div>
+              <p className="mt-2 text-sm text-cyan-100">Accepted hackers upload a signed waiver, which unlocks their RSVP, by {EVENT_DETAILS.rsvpDeadlineLabel}. Download each waiver to check every page is signed, then delete your downloaded copy. Resetting deletes the files and the RSVP so the hacker can upload again. Files are deleted automatically {EVENT_DETAILS.waiverRetentionDays} days after upload.</p>
+              {participantsError && <p role="alert" className="mt-4 rounded-xl bg-red-100 p-4 text-red-900">{participantsError}</p>}
+              {participants && !participants.length && <p className="mt-4 text-cyan-100">No accepted participants yet.</p>}
+              {participants?.length > 0 && (
+                <div className="mt-5 max-h-96 overflow-auto rounded-xl border border-white/20">
+                  <table className="w-full min-w-[40rem] text-left text-sm">
+                    <thead className="bg-white/10"><tr><th className="p-3">Hacker</th><th className="p-3">Waiver</th><th className="p-3">RSVP</th><th className="p-3"><span className="sr-only">Actions</span></th></tr></thead>
+                    <tbody>{participants.map((participant) => (
+                      <tr key={participant.id} className="border-t border-white/10 align-top">
+                        <td className="p-3"><p className="font-semibold">{participant.name}</p><p className="break-all text-cyan-100">{participant.email}</p></td>
+                        <td className="p-3">
+                          <p>{participant.waiverSubmittedAt ? `Submitted ${formatWhen(participant.waiverSubmittedAt)}` : participant.files.length ? `Not submitted (${participant.files.length} uploaded)` : 'Not submitted'}</p>
+                          {participant.files.length > 0 && (
+                            <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">{participant.files.map((file, index) => (
+                              <a key={file.id} href={`/api/organizer/waivers/files/${file.id}`} download className="text-cyan-200 underline">File {index + 1} ({file.type === 'application/pdf' ? 'PDF' : 'image'})</a>
+                            ))}</p>
+                          )}
+                        </td>
+                        <td className="p-3">{participant.rsvpAt ? `Confirmed ${formatWhen(participant.rsvpAt)}` : '—'}</td>
+                        <td className="p-3 text-right">
+                          {participant.waiverSubmittedAt && !participant.rsvpAt && (
+                            <button type="button" onClick={() => confirmRsvp(participant)} disabled={busy === `rsvp-${participant.id}`} className="mb-2 mr-2 rounded-lg border border-white/30 px-3 py-1.5 text-xs hover:bg-white/10 disabled:opacity-50">Confirm RSVP</button>
+                          )}
+                          {(participant.waiverSubmittedAt || participant.files.length > 0) && (
+                            <button type="button" onClick={() => resetWaiver(participant)} disabled={busy === `reset-${participant.id}`} className="rounded-lg border border-white/30 px-3 py-1.5 text-xs hover:bg-white/10 disabled:opacity-50">Reset waiver</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+            </section>
 
             <section className="rounded-3xl border border-white/15 bg-[#14365d] p-6 sm:p-8">
               <div className="flex items-center gap-3"><Camera className="text-cyan-200" /><h2 className="font-bungee text-xl">Scan meal QR</h2></div>
@@ -266,7 +379,7 @@ export default function Organizer() {
                   : <button type="button" onClick={startScanner} disabled={busy === 'scan'} className={actionButton}>{scanFeedback ? 'Scan next badge' : 'Open camera'}</button>}
               </div>
               {scanFeedback && (() => {
-                const successful = scanFeedback.type === 'success';
+                const successful = scanFeedback.type === 'success' || scanFeedback.type === 'repeat';
                 const declined = scanFeedback.type === 'declined' || scanFeedback.type === 'limit';
                 const cardStyle = successful
                   ? 'bg-emerald-100 text-emerald-950'
@@ -280,8 +393,8 @@ export default function Organizer() {
                       {successful ? <Check size={22} strokeWidth={3} /> : declined ? <X size={22} strokeWidth={3} /> : <span className="text-xl font-bold">!</span>}
                     </span>
                     <div>
-                      <p className="font-semibold">{successful ? 'Meal recorded' : scanFeedback.type === 'limit' ? 'Meal limit reached' : declined ? 'Pass declined' : 'Scan error'}</p>
-                      {successful ? (
+                      <p className="font-semibold">{scanFeedback.type === 'repeat' ? 'Already recorded' : successful ? 'Meal recorded' : scanFeedback.type === 'limit' ? 'Meal limit reached' : declined ? 'Pass declined' : 'Scan error'}</p>
+                      {scanFeedback.type === 'success' ? (
                         <><p>{scanFeedback.name}</p><p>Meals: {scanFeedback.previousCount} → {scanFeedback.mealCount}</p></>
                       ) : <p>{scanFeedback.message}</p>}
                     </div>
@@ -328,7 +441,7 @@ export default function Organizer() {
                 <p className="mt-3 text-cyan-100">Assignments are locked: {overview.settings.room_count} rooms, starting {overview.settings.start_time}. This action cannot be repeated.</p>
               ) : (
                 <>
-                  <p className="mt-2 text-sm text-cyan-100">Preview as often as needed. Each room gets {EVENT_DETAILS.judgingWindowMinutes / (EVENT_DETAILS.pitchMinutes + EVENT_DETAILS.changeoverMinutes)} slots in the three-hour window: {EVENT_DETAILS.pitchMinutes} minutes to pitch and {EVENT_DETAILS.changeoverMinutes} minute to change over.</p>
+                  <p className="mt-2 text-sm text-cyan-100">Preview as often as needed. Each room gets {EVENT_DETAILS.judgingWindowMinutes / (EVENT_DETAILS.pitchMinutes + EVENT_DETAILS.changeoverMinutes)} slots in the {EVENT_DETAILS.judgingWindowMinutes}-minute judging window: {EVENT_DETAILS.pitchMinutes} minutes to pitch and {EVENT_DETAILS.changeoverMinutes} minute to change over.</p>
                   <div className="mt-5 grid gap-4 sm:grid-cols-2">
                     <label className="text-sm">Number of rooms
                       <input type="number" min="1" max="100" value={roomCount} onChange={(event) => setRoomCount(event.target.value)} className="mt-2 block w-full rounded-xl border border-white/20 bg-white px-4 py-3 text-[#0d2243]" />
@@ -344,15 +457,18 @@ export default function Organizer() {
                       <p className="mt-1 text-cyan-100">Projected finish: {preview.projectedFinish}</p>
                       {preview.overtime && <div className="mt-4 rounded-xl border border-amber-300/40 bg-amber-100/10 p-4 text-amber-100">
                         <p>Overflow: use at least {preview.minimumRooms} rooms to finish by {preview.endTime}, or confirm overtime to {preview.projectedFinish}.</p>
-                        <label className="mt-3 flex items-start gap-2"><input type="checkbox" checked={overtimeConfirmed} onChange={(event) => setOvertimeConfirmed(event.target.checked)} className="mt-1" /> I confirm judging may run past the three-hour window.</label>
+                        <label className="mt-3 flex items-start gap-2"><input type="checkbox" checked={overtimeConfirmed} onChange={(event) => setOvertimeConfirmed(event.target.checked)} className="mt-1" /> I confirm judging may run past {preview.endTime}.</label>
                       </div>}
-                      {preview.excludedCount > 0 && <p role="alert" className="mt-4 rounded-xl bg-amber-100/10 p-4 text-amber-100">{preview.excludedCount} imported projects need matching or duplicate-member fixes before the one-time assignment can be locked.</p>}
+                      {preview.unmatchedCount > 0 && <div role="alert" className="mt-4 rounded-xl border border-amber-300/40 bg-amber-100/10 p-4 text-amber-100">
+                        <p>{preview.unmatchedCount} project{preview.unmatchedCount === 1 ? ' has' : 's have'} team members who couldn&apos;t be matched to an accepted application (see the import table). They still get a pitch slot, but those hackers won&apos;t see it on their pass. Fix the emails in the CSV and re-import, or tell those teams their time in person.</p>
+                        <label className="mt-3 flex items-start gap-2"><input type="checkbox" checked={unmatchedConfirmed} onChange={(event) => setUnmatchedConfirmed(event.target.checked)} className="mt-1" /> Schedule them anyway.</label>
+                      </div>}
                       {!!preview.assignments.length && <div className="mt-4 max-h-64 overflow-auto rounded-xl border border-white/20">
                         <table className="w-full min-w-[28rem] text-left text-sm"><thead className="bg-white/10"><tr><th className="p-3">Project</th><th className="p-3">Room</th><th className="p-3">Pitch</th></tr></thead>
                           <tbody>{preview.assignments.map((assignment) => <tr key={assignment.id} className="border-t border-white/10"><td className="p-3">{assignment.title}</td><td className="p-3">{assignment.room}</td><td className="p-3">{assignment.pitchTime}</td></tr>)}</tbody>
                         </table>
                       </div>}
-                      <button type="button" onClick={assignProjects} disabled={!preview.assignments.length || preview.excludedCount > 0 || (preview.overtime && !overtimeConfirmed) || busy === 'assign'} className={`${actionButton} mt-5`}>Assign projects once</button>
+                      <button type="button" onClick={assignProjects} disabled={!preview.assignments.length || (preview.unmatchedCount > 0 && !unmatchedConfirmed) || (preview.overtime && !overtimeConfirmed) || busy === 'assign'} className={`${actionButton} mt-5`}>Assign projects once</button>
                     </div>
                   )}
                 </>

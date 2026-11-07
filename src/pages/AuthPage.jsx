@@ -10,7 +10,9 @@ const BG = '/assets/apply-bg.webp';
 
 function safeReturnTo(value) {
   if (typeof value === 'string' && /^\/(?![\/\\])[^\\\u0000-\u001f]*$/.test(value)) {
-    return new URL(value, window.location.origin).pathname;
+    // Dot segments can normalize to a protocol-relative path ("/.//evil.com" -> "//evil.com").
+    const { pathname } = new URL(value, window.location.origin);
+    if (!/^\/[\/\\]/.test(pathname)) return pathname;
   }
   return '/dashboard';
 }
@@ -88,7 +90,7 @@ export default function AuthPage({ mode }) {
       await signIn({ email: form.email, password: form.password });
       navigate(returnTo, { replace: true });
     } catch (requestError) {
-      setError(requestError.message);
+      setError(Object.values(requestError.fields || {}).join(' ') || requestError.message);
     } finally {
       setLoading(false);
     }

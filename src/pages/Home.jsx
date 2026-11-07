@@ -294,7 +294,7 @@ const FAQ_ITEMS = [
   {
     question: 'What should my project be about?',
     answer:
-      'There is no single required theme. Start with a problem or idea your team cares about and build something meaningful, useful, or fun. Scope it to a working prototype that you can complete within the 12-hour build window.',
+      'There is no single required theme. Start with a problem or idea your team cares about and build something meaningful, useful, or fun. Scope it to a working prototype your team can finish by the end of the Final Hacking Stretch at 5:00 PM, before judging starts.',
   },
   {
     question: 'How many people are in a team?',

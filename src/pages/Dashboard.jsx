@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, LogOut, Send, Ticket } from 'lucide-react';
+import EventChecklist from '@/components/EventChecklist';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { formatParticipantName } from '@/participantName';
+import { APPLICATIONS_CLOSED_MESSAGE, applicationsClosed } from '@/eventDetails';
 
 const BG = '/assets/apply-bg.webp';
 
@@ -13,9 +15,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [applicationLoading, setApplicationLoading] = useState(true);
   const [application, setApplication] = useState(null);
+  const [rsvpConfirmed, setRsvpConfirmed] = useState(false);
   const [applicationError, setApplicationError] = useState(false);
   const [statusRetry, setStatusRetry] = useState(0);
   const [signOutError, setSignOutError] = useState('');
+  const closed = applicationsClosed();
 
   useEffect(() => {
     let active = true;
@@ -28,7 +32,10 @@ export default function Dashboard() {
         return response.json();
       })
       .then((data) => {
-        if (active) setApplication(data.application || null);
+        if (active) {
+          setApplication(data.application || null);
+          setRsvpConfirmed(Boolean(data.application?.rsvp_at));
+        }
       })
       .catch(() => {
         if (active) setApplicationError(true);
@@ -102,8 +109,10 @@ export default function Dashboard() {
                 ? "We couldn't check your application status. Please try again."
                 : application
                 ? application.accepted
-                  ? `You're accepted, ${formatParticipantName(application.full_name)}! Open your participant pass below.`
+                  ? `You're accepted, ${formatParticipantName(application.full_name)}! Your next steps are below.`
                   : `Thanks, ${formatParticipantName(application.full_name)}. Your application was received and is being reviewed.`
+                : closed
+                ? `${APPLICATIONS_CLOSED_MESSAGE} Questions? Email hello@onhacks.ca.`
                 : 'Complete the hackathon application when you are ready to join the event.'}
             </p>
             {applicationError && !applicationLoading && (
@@ -113,9 +122,13 @@ export default function Dashboard() {
             )}
           </div>
 
+          {!applicationLoading && !applicationError && application?.accepted && (
+            <EventChecklist onChange={(checklist) => setRsvpConfirmed(Boolean(checklist.rsvpAt))} />
+          )}
+
           {signOutError && <p role="alert" className="mb-4 text-sm text-red-700">{signOutError}</p>}
           <div className="flex flex-col sm:flex-row gap-3">
-            {!applicationLoading && !applicationError && application?.accepted && (
+            {!applicationLoading && !applicationError && application?.accepted && rsvpConfirmed && (
               <Button onClick={() => navigate('/participant')} className="flex-1 h-12 font-bungee bg-[#FF2E2E] hover:bg-[#FF2E2E]/90 text-white">
                 <Ticket className="w-5 h-5 mr-2" /> Participant pass
               </Button>
@@ -123,10 +136,13 @@ export default function Dashboard() {
             {!applicationLoading && !applicationError && !application && (
               <Button
                 onClick={() => navigate('/apply')}
-                className="flex-1 h-12 font-bungee bg-[#FF2E2E] hover:bg-[#FF2E2E]/90 text-white"
+                disabled={closed}
+                className={`flex-1 h-12 font-bungee ${closed
+                  ? 'bg-gray-300 text-gray-500 disabled:opacity-100 cursor-not-allowed'
+                  : 'bg-[#FF2E2E] hover:bg-[#FF2E2E]/90 text-white'}`}
               >
                 <Send className="w-5 h-5 mr-2" />
-                Apply to ONHacks
+                {closed ? 'Applications closed' : 'Apply to ONHacks'}
               </Button>
             )}
             <Button
