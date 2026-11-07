@@ -24,15 +24,23 @@ const DOCUMENTS = {
       {
         heading: 'Access and service providers',
         paragraphs: [
-          'Access is limited to the ONHacks organizing team and service providers that help us host, secure, and operate the website and database. Those providers may process information outside Canada.',
+          'Apart from the sponsor sharing described below, access is limited to the ONHacks organizing team and service providers that help us host, secure, and operate the website and database. Those providers may process information outside Canada.',
           'We keep information only for as long as it is reasonably needed for application review, event operations, safety, legal, and security purposes, after which it is deleted or anonymized where practical.',
+        ],
+      },
+      {
+        heading: 'Sharing with sponsors',
+        paragraphs: [
+          'If your team wins a prize, we share your name and email address with the sponsor providing that prize so they can deliver it to you.',
+          'Some sponsors give credits or perks to every participant. To deliver these, we share participants’ email addresses with those sponsors. You can ask us to leave you out of this sharing.',
+          'We only share what is needed to deliver the prize or perk. Some sponsors are located outside Canada.',
         ],
       },
       {
         heading: 'Your choices and questions',
         paragraphs: [
           'You may ask to access or correct your information, request deletion where appropriate, or withdraw consent for uses that are not necessary to operate the event. Some requests may affect our ability to process your application.',
-          'For privacy questions, contact the ONHacks organizing team through our official Instagram account: @onhacks_.',
+          'For privacy questions, or to opt out of sponsor sharing, email hello@onhacks.ca or contact the ONHacks organizing team through our official Instagram account: @onhacks_.',
         ],
       },
       {
