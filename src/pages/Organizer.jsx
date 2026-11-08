@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Camera, Check, ClipboardCheck, FileUp, LockKeyhole, LogOut, Trophy, Waves, X } from 'lucide-react';
+import { Camera, Check, FileUp, LockKeyhole, LogOut, Trophy, Waves, X } from 'lucide-react';
 import { EVENT_DETAILS } from '@/eventDetails';
 import { useScreenScale } from '@/hooks/useScreenScale';
 
@@ -25,12 +25,6 @@ async function requestJson(url, options = {}) {
 
 const actionButton = 'rounded-xl bg-[#ff473d] px-5 py-3 font-bungee text-base text-white transition hover:bg-[#e72e2e] disabled:cursor-not-allowed disabled:opacity-[0.45]';
 
-function formatWhen(value) {
-  return new Date(value).toLocaleString('en-CA', {
-    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto',
-  });
-}
-
 export default function Organizer() {
   useScreenScale();
   const [session, setSession] = useState('checking');
@@ -48,8 +42,6 @@ export default function Organizer() {
   const [scanFeedback, setScanFeedback] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [importResult, setImportResult] = useState(null);
-  const [participants, setParticipants] = useState(null);
-  const [participantsError, setParticipantsError] = useState('');
   const [results, setResults] = useState(null);
   const [resultsError, setResultsError] = useState('');
   const videoRef = useRef(null);
@@ -84,16 +76,6 @@ export default function Organizer() {
     return () => { active = false; };
   }, []);
 
-  async function loadParticipants() {
-    try {
-      const data = await organizerRequest('/api/organizer/participants');
-      setParticipants(data.participants);
-      setParticipantsError('');
-    } catch (error) {
-      setParticipantsError(error.message);
-    }
-  }
-
   async function loadResults() {
     try {
       const data = await organizerRequest('/api/organizer/judging-results');
@@ -107,35 +89,8 @@ export default function Organizer() {
   useEffect(() => {
     if (session !== 'signed-in') return;
     loadOverview().catch((error) => setPageError(error.message));
-    loadParticipants();
     loadResults();
   }, [session]);
-
-  async function resetWaiver(participant) {
-    if (!window.confirm(`Reset ${participant.name}'s waiver? Their uploaded files and RSVP will be deleted, and they will need to upload the waiver again. If RSVPs have closed, click Confirm RSVP once they resubmit.`)) return;
-    setBusy(`reset-${participant.id}`);
-    try {
-      await organizerRequest(`/api/organizer/participants/${participant.id}/waiver/reset`, { method: 'POST' });
-      await Promise.all([loadParticipants(), loadOverview()]);
-    } catch (error) {
-      setParticipantsError(error.message);
-    } finally {
-      setBusy('');
-    }
-  }
-
-  async function confirmRsvp(participant) {
-    if (!window.confirm(`Confirm ${participant.name}'s RSVP? Check that their waiver is signed first. They will get their event pass right away.`)) return;
-    setBusy(`rsvp-${participant.id}`);
-    try {
-      await organizerRequest(`/api/organizer/participants/${participant.id}/rsvp`, { method: 'POST' });
-      await Promise.all([loadParticipants(), loadOverview()]);
-    } catch (error) {
-      setParticipantsError(error.message);
-    } finally {
-      setBusy('');
-    }
-  }
 
   useEffect(() => {
     if (session !== 'signed-in' || !overview || overview.settings) return;
@@ -231,8 +186,6 @@ export default function Organizer() {
     setUnmatchedConfirmed(false);
     previewFingerprint.current = '';
     setImportResult(null);
-    setParticipants(null);
-    setParticipantsError('');
     setResults(null);
     setResultsError('');
     setPageError('');
@@ -355,45 +308,6 @@ export default function Organizer() {
           <div className="mt-8 space-y-6">
             {pageError && <p role="alert" className="rounded-xl bg-red-100 p-4 text-red-900">{pageError}</p>}
             {overview && <p className="text-base text-cyan-100">{overview.acceptedCount} accepted participants · {overview.waiverCount} waivers submitted · {overview.rsvpCount} RSVPs · {overview.projects.length} imported projects · {overview.unprintedCount} badges not yet generated</p>}
-
-            <section className="rounded-3xl border border-white/15 bg-[#14365d] p-6 sm:p-8">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3"><ClipboardCheck className="text-cyan-200" /><h2 className="font-bungee text-xl">Waivers &amp; RSVPs</h2></div>
-                <button type="button" onClick={() => { loadParticipants(); loadOverview().catch(() => {}); }} className="text-base text-cyan-100 underline hover:text-white">Refresh</button>
-              </div>
-              <p className="mt-2 text-base text-cyan-100">Accepted hackers upload a signed waiver, which unlocks their RSVP, by {EVENT_DETAILS.rsvpDeadlineLabel}. Download each waiver to check every page is signed, then delete your downloaded copy. Resetting deletes the files and the RSVP so the hacker can upload again. Files are deleted automatically {EVENT_DETAILS.waiverRetentionDays} days after upload.</p>
-              {participantsError && <p role="alert" className="mt-4 rounded-xl bg-red-100 p-4 text-red-900">{participantsError}</p>}
-              {participants && !participants.length && <p className="mt-4 text-cyan-100">No accepted participants yet.</p>}
-              {participants?.length > 0 && (
-                <div className="mt-5 max-h-96 overflow-auto rounded-xl border border-white/20">
-                  <table className="w-full min-w-[40rem] text-left text-base">
-                    <thead className="bg-white/10"><tr><th className="p-3">Hacker</th><th className="p-3">Waiver</th><th className="p-3">RSVP</th><th className="p-3"><span className="sr-only">Actions</span></th></tr></thead>
-                    <tbody>{participants.map((participant) => (
-                      <tr key={participant.id} className="border-t border-white/10 align-top">
-                        <td className="p-3"><p className="font-semibold">{participant.name}</p><p className="break-all text-cyan-100">{participant.email}</p></td>
-                        <td className="p-3">
-                          <p>{participant.waiverSubmittedAt ? `Submitted ${formatWhen(participant.waiverSubmittedAt)}` : participant.files.length ? `Not submitted (${participant.files.length} uploaded)` : 'Not submitted'}</p>
-                          {participant.files.length > 0 && (
-                            <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">{participant.files.map((file, index) => (
-                              <a key={file.id} href={`/api/organizer/waivers/files/${file.id}`} download className="text-cyan-200 underline">File {index + 1} ({file.type === 'application/pdf' ? 'PDF' : 'image'})</a>
-                            ))}</p>
-                          )}
-                        </td>
-                        <td className="p-3">{participant.rsvpAt ? `Confirmed ${formatWhen(participant.rsvpAt)}` : '—'}</td>
-                        <td className="p-3 text-right">
-                          {participant.waiverSubmittedAt && !participant.rsvpAt && (
-                            <button type="button" onClick={() => confirmRsvp(participant)} disabled={busy === `rsvp-${participant.id}`} className="mb-2 mr-2 rounded-lg border border-white/30 px-3 py-1.5 text-sm hover:bg-white/10 disabled:opacity-50">Confirm RSVP</button>
-                          )}
-                          {(participant.waiverSubmittedAt || participant.files.length > 0) && (
-                            <button type="button" onClick={() => resetWaiver(participant)} disabled={busy === `reset-${participant.id}`} className="rounded-lg border border-white/30 px-3 py-1.5 text-sm hover:bg-white/10 disabled:opacity-50">Reset waiver</button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
-                </div>
-              )}
-            </section>
 
             <section className="rounded-3xl border border-white/15 bg-[#14365d] p-6 sm:p-8">
               <div className="flex items-center gap-3"><Camera className="text-cyan-200" /><h2 className="font-bungee text-xl">Scan meal QR</h2></div>

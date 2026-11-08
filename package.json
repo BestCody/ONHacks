@@ -15,6 +15,7 @@
     "judges:set-password": "node scripts/set-judge-password.js",
     "badges:generate": "node scripts/generate-badges.js",
     "applicants": "node scripts/applicants.js",
+    "waivers": "node scripts/waivers.js",
     "start": "node server/index.js"
   },
   "dependencies": {

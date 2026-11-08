@@ -674,110 +674,8 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
     }
   });
 
-  app.get('/api/organizer/participants', requireOrganizer, async (_request, response, next) => {
-    try {
-      const result = await pool.query(`
-        SELECT a.id, a.full_name, a.email, a.waiver_submitted_at, a.rsvp_at,
-               COALESCE(
-                 JSON_AGG(JSON_BUILD_OBJECT(
-                   'id', f.id, 'name', f.file_name, 'size', f.byte_size, 'type', f.content_type
-                 ) ORDER BY f.id) FILTER (WHERE f.id IS NOT NULL),
-                 '[]'::json
-               ) AS files
-        FROM event_applications a
-        LEFT JOIN waiver_files f ON f.application_id = a.id
-        WHERE a.accepted = TRUE
-        GROUP BY a.id
-        ORDER BY lower(a.full_name), a.id
-      `);
-      return response.json({
-        participants: result.rows.map((row) => ({
-          id: Number(row.id),
-          name: formatParticipantName(row.full_name),
-          email: row.email,
-          waiverSubmittedAt: row.waiver_submitted_at,
-          rsvpAt: row.rsvp_at,
-          files: row.files.map((file) => ({ ...file, id: Number(file.id) })),
-        })),
-      });
-    } catch (error) {
-      return next(error);
-    }
-  });
-
-  app.get('/api/organizer/waivers/files/:fileId', requireOrganizer, async (request, response, next) => {
-    const fileId = Number(request.params.fileId);
-    if (!Number.isSafeInteger(fileId) || fileId < 1) {
-      return response.status(404).json({ error: 'Waiver file not found.' });
-    }
-    try {
-      const result = await pool.query(
-        'SELECT application_id, content_type, data FROM waiver_files WHERE id = $1',
-        [fileId],
-      );
-      const file = result.rows[0];
-      if (!file) return response.status(404).json({ error: 'Waiver file not found.' });
-      const extension = waiverExtensions[file.content_type] || 'bin';
-      response.setHeader('Content-Type', file.content_type);
-      // Always download rather than render, so an uploaded file can never run in the site's origin.
-      response.setHeader('Content-Disposition',
-        `attachment; filename="waiver-${file.application_id}-${fileId}.${extension}"`);
-      return response.send(file.data);
-    } catch (error) {
-      return next(error);
-    }
-  });
-
-  app.post('/api/organizer/participants/:applicationId/waiver/reset', requireOrganizer, async (request, response, next) => {
-    const applicationId = Number(request.params.applicationId);
-    if (!Number.isSafeInteger(applicationId) || applicationId < 1) {
-      return response.status(404).json({ error: 'Participant not found.' });
-    }
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const updated = await client.query(
-        `UPDATE event_applications SET waiver_submitted_at = NULL, rsvp_at = NULL
-         WHERE id = $1 AND accepted = TRUE RETURNING id`,
-        [applicationId],
-      );
-      if (!updated.rowCount) {
-        await client.query('ROLLBACK');
-        return response.status(404).json({ error: 'Participant not found.' });
-      }
-      await client.query('DELETE FROM waiver_files WHERE application_id = $1', [applicationId]);
-      await client.query('COMMIT');
-      return response.json({ ok: true });
-    } catch (error) {
-      await client.query('ROLLBACK').catch(() => {});
-      return next(error);
-    } finally {
-      client.release();
-    }
-  });
-
-  // Hackers can't RSVP themselves after the deadline (including after a waiver reset), so an
-  // organizer confirms them once their signed waiver is in.
-  app.post('/api/organizer/participants/:applicationId/rsvp', requireOrganizer, async (request, response, next) => {
-    const applicationId = Number(request.params.applicationId);
-    if (!Number.isSafeInteger(applicationId) || applicationId < 1) {
-      return response.status(404).json({ error: 'Participant not found.' });
-    }
-    try {
-      const updated = await pool.query(
-        `UPDATE event_applications SET rsvp_at = COALESCE(rsvp_at, NOW())
-         WHERE id = $1 AND accepted = TRUE AND waiver_submitted_at IS NOT NULL
-         RETURNING id`,
-        [applicationId],
-      );
-      if (!updated.rowCount) {
-        return response.status(409).json({ error: 'This hacker needs a submitted waiver before you can confirm their RSVP.' });
-      }
-      return response.json({ ok: true });
-    } catch (error) {
-      return next(error);
-    }
-  });
+  // Waiver status, resets and RSVP confirmations are not available through the website: the
+  // organizer password is shared with meal-scan volunteers. Lead organizers use `npm run waivers`.
 
   app.post('/api/organizer/meals/scan', requireOrganizer, async (request, response, next) => {
     const qrValue = request.body?.qrValue;
@@ -814,7 +712,7 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
         if (scanned?.accepted && !scanned.rsvp_at) {
           return response.status(409).json({
             code: 'participant_not_confirmed',
-            error: `${formatParticipantName(scanned.full_name)} hasn't confirmed their spot (no RSVP), so no meal was recorded. An organizer can confirm their RSVP on this page once their waiver is in.`,
+            error: `${formatParticipantName(scanned.full_name)} hasn't confirmed their spot (no RSVP), so no meal was recorded. Ask a lead organizer to confirm their RSVP once their waiver is in.`,
           });
         }
         if (scanned?.accepted && scanned.meal_count >= EVENT_DETAILS.mealLimitPerParticipant) {
