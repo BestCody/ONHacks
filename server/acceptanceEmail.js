@@ -17,8 +17,8 @@ export function firstNameFor(fullName) {
 
 const link = (href, label) => `<a href="${href}" style="color:#FF2E2E;font-weight:bold;">${label}</a>`;
 
-// The acceptance email is deterministic for a given name, so a retried send carries
-// the same payload and Resend's idempotency key can recognize it as a duplicate.
+// The acceptance email is deterministic for a given name, so the dry-run preview matches
+// exactly what is sent.
 export function buildAcceptanceEmail(fullName) {
   const firstName = firstNameFor(fullName);
   const greeting = firstName ? `Hi ${firstName},` : 'Hi there,';

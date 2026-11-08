@@ -98,10 +98,11 @@ accounts are linked to an existing account when the verified email matches.
 If an older password account has not verified that address, linking revokes
 its password and sessions first.
 
-Account verification and participant application receipts use the Resend HTTPS
-API, which works on Render's Free plan. Verify `onhacks.ca` as a sending domain
-in Resend, then set `RESEND_API_KEY`, `EMAIL_FROM=ONHacks <hello@onhacks.ca>`,
-and `SITE_ORIGIN=https://onhacks.ca`. No organizer email notifications are
+Account verification, participant application receipts, and acceptance emails
+use Brevo's transactional email API, which works on Render's Free plan. With
+`onhacks.ca` authenticated and `hello@onhacks.ca` verified as a sender in Brevo,
+set `BREVO_API_KEY`, `EMAIL_FROM=ONHacks <hello@onhacks.ca>`, and
+`SITE_ORIGIN=https://onhacks.ca`. Brevo's free plan sends 300 emails a day. No organizer email notifications are
 sent. Email/password signup is unavailable if verification email is not
 configured. Applications still save if receipt delivery fails.
 

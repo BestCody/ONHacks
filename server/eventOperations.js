@@ -61,6 +61,7 @@ export const eventOperationsSchema = `
     ADD COLUMN IF NOT EXISTS waiver_submitted_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS rsvp_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS acceptance_email_sent_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS acceptance_email_attempted_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS last_meal_scan_at TIMESTAMPTZ;
   CREATE TABLE IF NOT EXISTS waiver_files (
     id BIGSERIAL PRIMARY KEY,

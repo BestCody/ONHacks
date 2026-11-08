@@ -6,29 +6,34 @@ import { fileURLToPath } from 'node:url';
 import { config } from 'dotenv';
 import pg from 'pg';
 import { buildAcceptanceEmail } from '../server/acceptanceEmail.js';
+import { emailSettings, sendEmail } from '../server/email.js';
 import { EVENT_DETAILS } from '../src/eventDetails.js';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-config({ path: path.join(projectRoot, '.env') });
+config({ path: path.join(projectRoot, '.env'), quiet: true });
 
 const usage = `Usage:
   npm run applicants -- list [--all]
   npm run applicants -- accept <application id>... [--send]
   npm run applicants -- accept --all-pending [--send]
+  npm run applicants -- mark-sent <application id>...
+  npm run applicants -- retry <application id>...
 
 list shows applicants who haven't been sent an acceptance email yet (--all shows everyone).
 accept without --send is a dry run: it changes nothing and saves a preview of the email in prints/.
-With --send it marks the applicants accepted and emails each of them once.`;
+With --send it marks the applicants accepted and emails each of them once through Brevo.
+If a send's outcome was unclear, that applicant is flagged "Unconfirmed". Check Brevo's
+transactional log, then run mark-sent (it was delivered) or retry (it wasn't) for them.`;
 
-const resendUrl = 'https://api.resend.com/emails';
 const lockKey = 42734;
 const sendSpacingMs = 600;
 const maxAttempts = 4;
 
 class SendError extends Error {
-  constructor(message, { stopRun = false } = {}) {
+  constructor(message, { stopRun = false, uncertain = false } = {}) {
     super(message);
     this.stopRun = stopRun;
+    this.uncertain = uncertain;
   }
 }
 
@@ -36,12 +41,13 @@ function parseArguments(argv) {
   const [command, ...rest] = argv;
   const flags = new Set(rest.filter((value) => value.startsWith('--')));
   const values = rest.filter((value) => !value.startsWith('--'));
-  const known = { list: ['--all'], accept: ['--send', '--all-pending'] }[command];
+  const known = { list: ['--all'], accept: ['--send', '--all-pending'], 'mark-sent': [], retry: [] }[command];
   if (!known || [...flags].some((flag) => !known.includes(flag))) return null;
   if (command === 'list') return values.length ? null : { command, all: flags.has('--all') };
 
   const ids = values.map(Number);
   if (ids.some((id) => !Number.isSafeInteger(id) || id < 1)) return null;
+  if (command === 'mark-sent' || command === 'retry') return ids.length ? { command, ids: [...new Set(ids)] } : null;
   const allPending = flags.has('--all-pending');
   if (allPending === Boolean(ids.length)) return null;
   return { command, ids: [...new Set(ids)], allPending, send: flags.has('--send') };
@@ -57,7 +63,7 @@ async function existingColumns(client) {
 
 function statusFor(row) {
   if (!row.accepted) return 'Pending';
-  if (!row.acceptance_email_sent_at) return 'Accepted, not emailed';
+  if (!row.acceptance_email_sent_at) return row.acceptance_email_attempted_at ? 'Unconfirmed (check Brevo)' : 'Accepted, not emailed';
   if (row.rsvp_at) return "RSVP'd";
   if (row.waiver_submitted_at) return 'Waiver in, no RSVP';
   return 'Emailed';
@@ -69,8 +75,8 @@ function formatDate(value) {
 
 async function listApplicants(client, all) {
   const columns = await existingColumns(client);
-  // Before the waiver update is deployed these columns don't exist yet; listing still works.
-  const optional = ['acceptance_email_sent_at', 'waiver_submitted_at', 'rsvp_at']
+  // Before the latest update is deployed some columns don't exist yet; listing still works.
+  const optional = ['acceptance_email_sent_at', 'acceptance_email_attempted_at', 'waiver_submitted_at', 'rsvp_at']
     .map((name) => (columns.has(name) ? name : `NULL::timestamptz AS ${name}`));
   const result = await client.query(
     `SELECT id, full_name, email, team, github, accepted, created_at, ${optional.join(', ')}
@@ -98,16 +104,10 @@ async function listApplicants(client, all) {
 }
 
 async function selectApplicants(client, { ids, allPending }) {
+  const columns = 'id, full_name, email, accepted, acceptance_email_sent_at, acceptance_email_attempted_at';
   const result = allPending
-    ? await client.query(
-      `SELECT id, full_name, email, accepted, acceptance_email_sent_at FROM event_applications
-       WHERE acceptance_email_sent_at IS NULL ORDER BY id`,
-    )
-    : await client.query(
-      `SELECT id, full_name, email, accepted, acceptance_email_sent_at FROM event_applications
-       WHERE id = ANY($1::bigint[]) ORDER BY id`,
-      [ids],
-    );
+    ? await client.query(`SELECT ${columns} FROM event_applications WHERE acceptance_email_sent_at IS NULL ORDER BY id`)
+    : await client.query(`SELECT ${columns} FROM event_applications WHERE id = ANY($1::bigint[]) ORDER BY id`, [ids]);
   if (!allPending) {
     const found = new Set(result.rows.map((row) => Number(row.id)));
     const missing = ids.filter((id) => !found.has(id));
@@ -139,59 +139,43 @@ async function confirm(question) {
   }
 }
 
-async function sendAcceptance(row, { apiKey, from }) {
+// Brevo has no way to recognize a repeated send, so a request is retried only when Brevo
+// clearly refused it (rate limited). Anything without a clear answer is reported as uncertain.
+async function sendAcceptance(row, settings) {
   const email = buildAcceptanceEmail(row.full_name);
-  const body = JSON.stringify({
-    from,
-    to: row.email,
-    reply_to: email.replyTo,
-    subject: email.subject,
-    text: email.text,
-    html: email.html,
-  });
-
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    let response;
     try {
-      response = await fetch(resendUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          // Resend drops a repeat of this key for 24 hours, so a retry after a timeout
-          // or an interrupted run cannot email the same hacker twice.
-          'Idempotency-Key': `onhacks-acceptance-${row.id}`,
-        },
-        body,
-        signal: AbortSignal.timeout(20_000),
+      return await sendEmail(settings, {
+        to: row.email,
+        toName: row.full_name,
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
+        replyTo: email.replyTo,
+        tags: ['acceptance'],
       });
     } catch (error) {
-      if (attempt === maxAttempts) throw new SendError(`Could not reach Resend (${error.message}).`, { stopRun: true });
-      await sleep(2_000 * attempt);
-      continue;
+      if (error.uncertain) {
+        throw new SendError(`${error.message} The email may or may not have been sent.`, { stopRun: true, uncertain: true });
+      }
+      if (error.status === 429 && attempt < maxAttempts) {
+        await sleep((error.retryAfter || 2 * attempt) * 1000);
+        continue;
+      }
+      const limit = /limit|quota|credit|exceed/i.test(error.message);
+      throw new SendError(error.message, { stopRun: limit || [401, 402, 403, 429].includes(error.status) });
     }
-
-    const data = await response.json().catch(() => ({}));
-    if (response.ok) return data.id;
-
-    const detail = data.message || data.name || 'no details';
-    const quota = /quota/i.test(`${data.name} ${data.message}`);
-    const retryable = (response.status === 429 && !quota)
-      || response.status >= 500
-      || data.name === 'concurrent_idempotent_requests';
-    if (retryable && attempt < maxAttempts) {
-      const retryAfter = Number(response.headers.get('retry-after'));
-      await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 2_000 * attempt);
-      continue;
-    }
-    if (data.name === 'invalid_idempotent_request') {
-      throw new SendError('Resend says an acceptance email to this hacker was already sent in the last 24 hours with different content. Check the Resend dashboard before retrying.');
-    }
-    throw new SendError(`Resend returned HTTP ${response.status}: ${detail}`, {
-      stopRun: quota || [401, 403].includes(response.status) || retryable,
-    });
   }
-  throw new SendError('Resend did not accept the email after several attempts.', { stopRun: true });
+  throw new SendError('Brevo kept rate limiting the request.', { stopRun: true });
+}
+
+async function requireLatestSchema(client) {
+  const columns = await existingColumns(client);
+  const waiverTable = await client.query(`SELECT to_regclass('waiver_files') IS NOT NULL AS present`);
+  const needed = ['rsvp_at', 'waiver_submitted_at', 'acceptance_email_sent_at', 'acceptance_email_attempted_at'];
+  if (!needed.every((name) => columns.has(name)) || !waiverTable.rows[0].present) {
+    throw new Error('This database does not have the latest site update yet. Deploy the latest site to Render, let it start, then run this again. Nothing was changed.');
+  }
 }
 
 async function acceptApplicants(client, options) {
@@ -199,14 +183,18 @@ async function acceptApplicants(client, options) {
   const rsvpClosed = Date.now() > deadline;
   const rows = await selectApplicants(client, options);
   const alreadyEmailed = rows.filter((row) => row.acceptance_email_sent_at);
-  const targets = rows.filter((row) => !row.acceptance_email_sent_at);
+  const unconfirmed = rows.filter((row) => !row.acceptance_email_sent_at && row.acceptance_email_attempted_at);
+  const targets = rows.filter((row) => !row.acceptance_email_sent_at && !row.acceptance_email_attempted_at);
 
   for (const row of alreadyEmailed) {
     console.log(`Skipping #${row.id} ${row.full_name}: acceptance email already sent ${formatDate(row.acceptance_email_sent_at)}.`);
   }
+  for (const row of unconfirmed) {
+    console.log(`Skipping #${row.id} ${row.full_name}: an earlier send is unconfirmed. Check Brevo's log, then run mark-sent or retry for ${row.id}.`);
+  }
   if (!targets.length) {
     console.log('Nobody to accept or email.');
-    return true;
+    return !unconfirmed.length;
   }
 
   console.log(`${options.send ? 'Accepting and emailing' : 'Would accept and email'} ${targets.length} applicant(s):`);
@@ -218,26 +206,22 @@ async function acceptApplicants(client, options) {
   }
   const hoursLeft = Math.floor((deadline - Date.now()) / 3_600_000);
   if (hoursLeft < 72) console.log(`Note: only ${hoursLeft} hour(s) remain before RSVPs close on ${EVENT_DETAILS.rsvpDeadlineLabel}.`);
+  if (targets.length > 290) console.log(`Note: Brevo's free plan sends 300 emails a day (sign-up emails included), so this run will likely stop partway. Run it again the next day to finish.`);
 
   if (!options.send) {
     const previewPath = await savePreview(targets[0]);
-    console.log(`\nDry run only. Nothing was changed or sent.\nEmail preview for #${targets[0].id}: ${previewPath}\nAdd --send to accept and email them.`);
+    console.log(`\nDry run only. Nothing was changed or sent.\nEmail preview for #${targets[0].id}: ${previewPath}\nAdd --send to accept and email them through Brevo.`);
     return true;
   }
 
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-  const from = process.env.EMAIL_FROM?.trim();
-  if (!apiKey || !from) {
-    throw new Error('Set RESEND_API_KEY and EMAIL_FROM in your local .env (copy them from Render) before sending. Nothing was changed.');
+  const settings = emailSettings();
+  if (!settings) {
+    throw new Error('Set BREVO_API_KEY and EMAIL_FROM in your local .env before sending. Nothing was changed.');
   }
-  const columns = await existingColumns(client);
-  const waiverTable = await client.query(`SELECT to_regclass('waiver_files') IS NOT NULL AS present`);
-  if (!['rsvp_at', 'waiver_submitted_at', 'acceptance_email_sent_at'].every((name) => columns.has(name)) || !waiverTable.rows[0].present) {
-    throw new Error('This database does not have the waiver and RSVP update yet. Deploy the latest site to Render, let it start, then run this again. Nothing was changed.');
-  }
+  await requireLatestSchema(client);
 
   const databaseHost = new URL(process.env.DATABASE_URL).hostname;
-  if (!await confirm(`\nAccept and email ${targets.length} applicant(s) from ${from} using the database at ${databaseHost}? Type yes to continue: `)) {
+  if (!await confirm(`\nAccept and email ${targets.length} applicant(s) from ${settings.from} through Brevo, using the database at ${databaseHost}? Type yes to continue: `)) {
     console.log('Cancelled. Nothing was changed or sent.');
     return true;
   }
@@ -248,7 +232,7 @@ async function acceptApplicants(client, options) {
     // Re-read exactly the applicants shown above, under the lock, in case another run
     // emailed one of them meanwhile. Anyone who applied after the list was shown waits.
     const fresh = (await selectApplicants(client, { ids: targets.map((row) => Number(row.id)) }))
-      .filter((row) => !row.acceptance_email_sent_at);
+      .filter((row) => !row.acceptance_email_sent_at && !row.acceptance_email_attempted_at);
     const accepted = await client.query(
       `UPDATE event_applications SET accepted = TRUE
        WHERE id = ANY($1::bigint[]) AND accepted = FALSE RETURNING id`,
@@ -257,13 +241,28 @@ async function acceptApplicants(client, options) {
     console.log(`Marked ${accepted.rowCount} applicant(s) accepted.`);
 
     const failures = [];
+    const unclear = [];
     let sent = 0;
     for (const [index, row] of fresh.entries()) {
       if (index > 0) await sleep(sendSpacingMs);
+      // Record the attempt first, so an interrupted run can never email this person twice.
+      const claimed = await client.query(
+        `UPDATE event_applications SET acceptance_email_attempted_at = NOW()
+         WHERE id = $1 AND acceptance_email_sent_at IS NULL AND acceptance_email_attempted_at IS NULL
+         RETURNING id`,
+        [row.id],
+      );
+      if (!claimed.rowCount) continue;
       try {
-        await sendAcceptance(row, { apiKey, from });
+        await sendAcceptance(row, settings);
       } catch (error) {
-        failures.push(`#${row.id} ${row.email}: ${error.message}`);
+        if (error.uncertain) {
+          unclear.push(row);
+        } else {
+          // Brevo clearly refused it, so nothing went out; a later run may try again.
+          await client.query('UPDATE event_applications SET acceptance_email_attempted_at = NULL WHERE id = $1', [row.id]);
+          failures.push(`#${row.id} ${row.email}: ${error.message}`);
+        }
         if (error.stopRun) {
           const remaining = fresh.length - index - 1;
           if (remaining) failures.push(`Stopped before emailing ${remaining} more applicant(s). They are accepted; run the same command again to email them.`);
@@ -274,22 +273,53 @@ async function acceptApplicants(client, options) {
       try {
         await client.query('UPDATE event_applications SET acceptance_email_sent_at = NOW() WHERE id = $1', [row.id]);
       } catch (error) {
-        throw new Error(`Emailed #${row.id} ${row.email} but could not record it (${error.message}). Run the same command again within 24 hours; Resend will recognize the repeat and won't email them twice.`);
+        throw new Error(`Emailed #${row.id} ${row.email} but could not record it (${error.message}). They stay flagged as unconfirmed, so no run will email them again; run mark-sent ${row.id} once the database is reachable.`);
       }
       sent += 1;
       console.log(`  Emailed #${row.id} ${row.email}`);
     }
 
     console.log(`\nSent ${sent} of ${fresh.length} acceptance email(s).`);
+    if (unclear.length) {
+      console.error(`Unconfirmed: Brevo didn't give a clear answer for ${unclear.map((row) => `#${row.id} ${row.email}`).join(', ')}.`);
+      console.error(`Check Brevo's transactional log (tag "acceptance"), then run "npm run applicants -- mark-sent <id>" if it was delivered or "npm run applicants -- retry <id>" if it wasn't.`);
+    }
     if (failures.length) {
       console.error(`Problems:\n  ${failures.join('\n  ')}`);
-      console.error('Fix the problem (or wait for Resend\'s daily limit to reset), then run the same command again. Anyone already emailed is skipped.');
-      return false;
+      console.error('Fix the problem (or wait for Brevo\'s daily limit to reset), then run the same command again. Anyone already emailed is skipped.');
     }
-    return true;
+    return !failures.length && !unclear.length;
   } finally {
     await client.query('SELECT pg_advisory_unlock($1)', [lockKey]).catch(() => {});
   }
+}
+
+// Resolves applicants flagged "Unconfirmed" after checking Brevo's transactional log.
+async function resolveUnconfirmed(client, { command, ids }) {
+  await requireLatestSchema(client);
+  const result = command === 'mark-sent'
+    ? await client.query(
+      `UPDATE event_applications SET acceptance_email_sent_at = acceptance_email_attempted_at
+       WHERE id = ANY($1::bigint[]) AND acceptance_email_sent_at IS NULL AND acceptance_email_attempted_at IS NOT NULL
+       RETURNING id`,
+      [ids],
+    )
+    : await client.query(
+      `UPDATE event_applications SET acceptance_email_attempted_at = NULL
+       WHERE id = ANY($1::bigint[]) AND acceptance_email_sent_at IS NULL AND acceptance_email_attempted_at IS NOT NULL
+       RETURNING id`,
+      [ids],
+    );
+  const changed = new Set(result.rows.map((row) => Number(row.id)));
+  for (const id of ids) {
+    if (!changed.has(id)) console.log(`#${id} isn't flagged as unconfirmed, so nothing changed for it.`);
+  }
+  if (changed.size) {
+    console.log(command === 'mark-sent'
+      ? `Recorded ${changed.size} acceptance email(s) as sent.`
+      : `Cleared ${changed.size} unconfirmed send(s). Run accept for them again to email them.`);
+  }
+  return true;
 }
 
 const options = parseArguments(process.argv.slice(2));
@@ -309,11 +339,11 @@ let connected = false;
 try {
   await client.connect();
   connected = true;
-  if (options.command === 'list') {
-    await listApplicants(client, options.all);
-  } else if (!await acceptApplicants(client, options)) {
-    process.exitCode = 1;
-  }
+  let ok = true;
+  if (options.command === 'list') await listApplicants(client, options.all);
+  else if (options.command === 'accept') ok = await acceptApplicants(client, options);
+  else ok = await resolveUnconfirmed(client, options);
+  if (!ok) process.exitCode = 1;
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

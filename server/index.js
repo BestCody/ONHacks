@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { APPLICATIONS_CLOSED_MESSAGE, applicationsClosed } from '../src/eventDetails.js';
 import { APP_PATHS } from '../src/routes.js';
 import { clientIpKey } from './clientIp.js';
+import { emailSettings, sendEmail } from './email.js';
 import { eventOperationsSchema, mountEventOperations, purgeExpiredWaivers } from './eventOperations.js';
 import { judgingSchema, mountJudging } from './judging.js';
 
@@ -55,9 +56,8 @@ const googleOAuthClient = googleClientId && googleClientSecret && googleOAuthRed
       redirectUri: googleOAuthRedirectUri,
     })
   : null;
-const resendApiKey = process.env.RESEND_API_KEY?.trim() || '';
-const emailFrom = process.env.EMAIL_FROM?.trim() || '';
-const emailEnabled = Boolean(resendApiKey && emailFrom);
+const emailConfig = emailSettings();
+const emailEnabled = Boolean(emailConfig);
 const passwordHashOptions = {
   N: 16_384,
   r: 8,
@@ -514,33 +514,23 @@ async function sendVerificationEmail(user) {
   })[character]);
 
   try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: emailFrom,
-        to: user.email,
-        subject: 'Verify your ONHacks email',
-        text: [
-          `Hi ${user.full_name},`,
-          '',
-          'Confirm your email to finish creating your ONHacks account. Open the link below and enter the password you chose:',
-          verificationUrl.toString(),
-          '',
-          'This link expires in 24 hours. If you did not create this account, you can ignore this message.',
-          '',
-          'The ONHacks team',
-        ].join('\n'),
-        html: `<p>Hi ${safeName},</p><p>Confirm your email to finish creating your ONHacks account. Open the link below and enter the password you chose:</p><p><a href="${verificationUrl}">Verify email</a></p><p>This link expires in 24 hours. If you did not create this account, you can ignore this message.</p><p>The ONHacks team</p>`,
-      }),
-      signal: AbortSignal.timeout(10_000),
+    await sendEmail(emailConfig, {
+      to: user.email,
+      toName: user.full_name,
+      tags: ['verification'],
+      subject: 'Verify your ONHacks email',
+      text: [
+        `Hi ${user.full_name},`,
+        '',
+        'Confirm your email to finish creating your ONHacks account. Open the link below and enter the password you chose:',
+        verificationUrl.toString(),
+        '',
+        'This link expires in 24 hours. If you did not create this account, you can ignore this message.',
+        '',
+        'The ONHacks team',
+      ].join('\n'),
+      html: `<p>Hi ${safeName},</p><p>Confirm your email to finish creating your ONHacks account. Open the link below and enter the password you chose:</p><p><a href="${verificationUrl}">Verify email</a></p><p>This link expires in 24 hours. If you did not create this account, you can ignore this message.</p><p>The ONHacks team</p>`,
     });
-    if (!response.ok) {
-      throw new Error(`Verification email API returned HTTP ${response.status}.`);
-    }
   } catch (error) {
     await pool.query('DELETE FROM email_verification_tokens WHERE token_hash = $1', [tokenHash]);
     throw error;
@@ -626,32 +616,21 @@ async function sendApplicationReceipt(application) {
   if (!emailEnabled) return;
 
   try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: emailFrom,
-        to: application.email,
-        subject: 'ONHacks application received',
-        text: [
-          `Hi ${application.fullName},`,
-          '',
-          'We received your ONHacks application. The organizers will review it and contact you with next steps.',
-          '',
-          'This email confirms receipt only and does not guarantee acceptance.',
-          '',
-          '— The ONHacks team',
-        ].join('\n'),
-      }),
-      signal: AbortSignal.timeout(10_000),
+    await sendEmail(emailConfig, {
+      to: application.email,
+      toName: application.fullName,
+      tags: ['application-receipt'],
+      subject: 'ONHacks application received',
+      text: [
+        `Hi ${application.fullName},`,
+        '',
+        'We received your ONHacks application. The organizers will review it and contact you with next steps.',
+        '',
+        'This email confirms receipt only and does not guarantee acceptance.',
+        '',
+        '— The ONHacks team',
+      ].join('\n'),
     });
-
-    if (!response.ok) {
-      throw new Error(`Email API returned HTTP ${response.status}.`);
-    }
   } catch (error) {
     console.error('Application receipt delivery failed:', error);
   }
@@ -1142,7 +1121,7 @@ async function start() {
   }
 
   if (!emailEnabled) {
-    console.warn('Resend email is not configured; email/password signup and application receipts are disabled.');
+    console.warn('Brevo email is not configured (BREVO_API_KEY and EMAIL_FROM); email/password signup and application receipts are disabled.');
   } else if (!siteOrigin) {
     console.warn('SITE_ORIGIN is not configured; email/password signup is disabled.');
   }
