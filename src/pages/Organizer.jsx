@@ -62,14 +62,8 @@ export default function Organizer() {
       return await requestJson(url, options);
     } catch (error) {
       if (error.status === 401) {
-        scannerControls.current?.stop();
-        setScanning(false);
-        setOverview(null);
-        setPreview(null);
-        setParticipants(null);
-        setResults(null);
+        resetOrganizerState();
         setSession('signed-out');
-        setPageError('');
         setLoginError('Organizer session expired. Sign in again.');
       }
       throw error;
@@ -223,17 +217,32 @@ export default function Organizer() {
     }
   }
 
-  async function signOut() {
+  // Everything from the previous organizer is cleared, so on a shared phone the next person
+  // never sees the last scan or finds the one-time assignment's confirmations pre-ticked.
+  function resetOrganizerState() {
     scannerControls.current?.stop();
     scannerControls.current = null;
     setScanning(false);
+    setScanFeedback(null);
+    setOverview(null);
+    setPreview(null);
+    setPreviewError('');
+    setOvertimeConfirmed(false);
+    setUnmatchedConfirmed(false);
+    previewFingerprint.current = '';
+    setImportResult(null);
+    setParticipants(null);
+    setParticipantsError('');
+    setResults(null);
+    setResultsError('');
+    setPageError('');
+  }
+
+  async function signOut() {
     try {
       await requestJson('/api/organizer/signout', { method: 'POST' });
+      resetOrganizerState();
       setSession('signed-out');
-      setOverview(null);
-      setPreview(null);
-      setParticipants(null);
-      setResults(null);
     } catch (error) { setPageError(error.message); }
   }
 
@@ -251,7 +260,7 @@ export default function Organizer() {
           ? 'repeat'
           : error.code === 'meal_limit_reached'
             ? 'limit'
-            : error.code === 'participant_not_accepted' ? 'declined' : 'error',
+            : ['participant_not_accepted', 'participant_not_confirmed'].includes(error.code) ? 'declined' : 'error',
         // A repeat scan is never counted twice, so after a dropped connection it is safe to rescan.
         message: error.status === 0
           ? 'No response from the server. Scan the badge again; a repeat scan is never counted twice.'
@@ -433,7 +442,7 @@ export default function Organizer() {
                     </label>
                     <button type="submit" disabled={busy === 'import'} className={actionButton}>Import projects</button>
                   </form>
-                  {importResult && <p role="status" className="mt-4 text-cyan-100">Imported {importResult.imported} submitted projects; skipped {importResult.draftsSkipped} drafts; {importResult.unmatchedCount} unmatched team-member emails.</p>}
+                  {importResult && <p role="status" className="mt-4 text-cyan-100">Imported {importResult.imported} submitted projects; skipped {importResult.draftsSkipped} drafts{importResult.otherSkipped ? ` and ${importResult.otherSkipped} rows with another status` : ''}; {importResult.unmatchedCount} unmatched team-member emails.</p>}
                 </>
               )}
               {overview?.projects?.length > 0 && (
@@ -497,7 +506,7 @@ export default function Organizer() {
                 <div className="flex items-center gap-3"><Trophy className="text-cyan-200" /><h2 className="font-bungee text-xl">Judging results</h2></div>
                 <button type="button" onClick={loadResults} className="text-base text-cyan-100 underline hover:text-white">Refresh</button>
               </div>
-              <p className="mt-2 text-base text-cyan-100">Judges sign in at <a href="/judges" target="_blank" rel="noreferrer" className="underline">onhacks.ca/judges</a> with their name and the judge password, then rate each imported project from 1 to 5 with optional comments. Projects are ranked by average rating.</p>
+              <p className="mt-2 text-base text-cyan-100">Judges sign in at <a href="/judges" target="_blank" rel="noreferrer" className="underline">onhacks.ca/judges</a> with their name and the judge password, then rate each imported project from 1 to 5 with optional comments. Projects are ranked by average rating, then by how many judges rated them. Check the rating counts before picking winners: one high rating can outrank several.</p>
               {resultsError && <p role="alert" className="mt-4 rounded-xl bg-red-100 p-4 text-red-900">{resultsError}</p>}
               {results && !results.length && <p className="mt-4 text-cyan-100">No projects yet. Import the Devpost CSV above and they appear for judges right away.</p>}
               {results && results.length > 0 && (
@@ -506,7 +515,7 @@ export default function Organizer() {
                     <li key={result.id} className="rounded-2xl border border-white/15 bg-white/5 p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-sm uppercase tracking-widest text-cyan-200">#{index + 1}{result.room != null ? ` · Room ${result.room}${result.pitchTime ? ` · ${result.pitchTime}` : ''}` : ''}</p>
+                          <p className="text-sm uppercase tracking-widest text-cyan-200">{result.ratingCount ? `#${index + 1}` : 'Unrated'}{result.room != null ? ` · Room ${result.room}${result.pitchTime ? ` · ${result.pitchTime}` : ''}` : ''}</p>
                           <a href={result.url} target="_blank" rel="noreferrer" className="mt-1 block font-semibold underline-offset-4 hover:underline">{result.title}</a>
                         </div>
                         <p className="shrink-0 text-right"><span className="font-bungee text-2xl">{result.average ?? '—'}</span><span className="block text-sm text-cyan-100">{result.ratingCount} rating{result.ratingCount === 1 ? '' : 's'}</span></p>

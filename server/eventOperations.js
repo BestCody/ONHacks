@@ -145,7 +145,20 @@ function webLink(value) {
   }
 }
 
-const cleanText = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+// Devpost text goes into a jsonb column, which rejects half an emoji (a lone surrogate) and
+// NUL characters, so text is repaired first and always cut at whole characters.
+const wellFormed = (value) => String(value ?? '')
+  .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '�')
+  .replace(/\u0000/g, '');
+const truncate = (value, max) => {
+  const characters = Array.from(value);
+  return characters.length > max ? characters.slice(0, max).join('') : value;
+};
+const cleanText = (value, max) => truncate(wellFormed(value).replace(/\s+/g, ' ').trim(), max);
+// Keeps the paragraph breaks in project write-ups while tidying spaces and blank lines.
+const cleanParagraphs = (value, max) => truncate(wellFormed(value)
+  .replace(/\r\n?/g, '\n').replace(/[^\S\n]+/g, ' ').replace(/ *\n */g, '\n')
+  .replace(/\n{3,}/g, '\n\n').trim(), max);
 const listFrom = (value, maxItems, maxLength) => [...new Set(String(value ?? '').split(',')
   .map((item) => cleanText(item, maxLength)).filter(Boolean))].slice(0, maxItems);
 
@@ -271,15 +284,19 @@ function parseDevpostCsv(csv) {
 
   const projects = new Map();
   let draftsSkipped = 0;
+  let otherSkipped = 0;
   for (const [index, row] of rows.entries()) {
     const cell = (position) => String(row[position] ?? '');
     const status = cell(statusColumn).trim().toLowerCase();
-    if (status === 'draft') {
+    if (status.startsWith('draft')) {
       draftsSkipped += 1;
       continue;
     }
-    if (status !== 'submitted') {
-      throw new Error(`Row ${index + 2} has an unknown project status. Import a Devpost Projects data CSV with submitted projects.`);
+    // Devpost can label submissions with extra detail, such as "Submitted (Gallery/Visible)".
+    // Anything that isn't a submission is skipped and counted rather than failing the import.
+    if (!status.startsWith('submitted')) {
+      otherSkipped += 1;
+      continue;
     }
     let url;
     try {
@@ -293,7 +310,7 @@ function parseDevpostCsv(csv) {
     url.hash = '';
     url.search = '';
     const projectUrl = url.toString().replace(/\/$/, '');
-    const title = cell(titleColumn).trim();
+    const title = wellFormed(cell(titleColumn)).trim();
     if (!title || title.length > 200) {
       throw new Error(`Row ${index + 2} needs a project title under 200 characters.`);
     }
@@ -307,7 +324,7 @@ function parseDevpostCsv(csv) {
       extraNames.push(cleanText(`${overflowNames[i]} ${overflowNames[i + 1]}`, 80));
     }
     const details = {
-      about: cleanText(cell(aboutColumn), 4000),
+      about: cleanParagraphs(cell(aboutColumn), 4000),
       builtWith: listFrom(cell(builtWithColumn), 20, 50),
       video: webLink(cell(videoColumn)),
       links: [...new Set(cell(linksColumn).split(/[\s,]+/).map(webLink).filter(Boolean))].slice(0, 5),
@@ -320,7 +337,7 @@ function parseDevpostCsv(csv) {
     projects.set(projectUrl, existing);
   }
   if (!projects.size) throw new Error('The CSV has no submitted projects to import.');
-  return { projects: [...projects.values()], draftsSkipped };
+  return { projects: [...projects.values()], draftsSkipped, otherSkipped };
 }
 
 export function mountEventOperations(app, { pool, requireAuth, parseCookies, appendCookie, verifyPassword, hashSessionToken }) {
@@ -771,14 +788,14 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
       // second volunteer scanning the same badge) rather than the hacker's next meal.
       const result = await pool.query(
         `UPDATE event_applications SET meal_count = meal_count + 1, last_meal_scan_at = NOW()
-         WHERE meal_qr_token = $1 AND accepted = TRUE AND meal_count < $2
+         WHERE meal_qr_token = $1 AND accepted = TRUE AND rsvp_at IS NOT NULL AND meal_count < $2
            AND (last_meal_scan_at IS NULL OR last_meal_scan_at <= NOW() - $3 * INTERVAL '1 minute')
          RETURNING full_name, meal_count`,
         [match[1], EVENT_DETAILS.mealLimitPerParticipant, EVENT_DETAILS.mealScanCooldownMinutes],
       );
       if (!result.rowCount) {
         const participant = await pool.query(
-          `SELECT accepted, meal_count, full_name, last_meal_scan_at,
+          `SELECT accepted, rsvp_at, meal_count, full_name, last_meal_scan_at,
                   last_meal_scan_at > NOW() - $2 * INTERVAL '1 minute' AS recently_scanned
            FROM event_applications WHERE meal_qr_token = $1`,
           [match[1], EVENT_DETAILS.mealScanCooldownMinutes],
@@ -792,6 +809,12 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
           return response.status(409).json({
             code: 'meal_recently_scanned',
             error: `${name}'s meal was already recorded at ${at}, so they're all set. No extra meal was counted.`,
+          });
+        }
+        if (scanned?.accepted && !scanned.rsvp_at) {
+          return response.status(409).json({
+            code: 'participant_not_confirmed',
+            error: `${formatParticipantName(scanned.full_name)} hasn't confirmed their spot (no RSVP), so no meal was recorded. An organizer can confirm their RSVP on this page once their waiver is in.`,
           });
         }
         if (scanned?.accepted && scanned.meal_count >= EVENT_DETAILS.mealLimitPerParticipant) {
@@ -851,7 +874,7 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
       } catch (error) {
         return response.status(400).json({ error: error.message });
       }
-      const { projects, draftsSkipped } = parsed;
+      const { projects, draftsSkipped, otherSkipped } = parsed;
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
@@ -877,15 +900,21 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
           const unmatched = [...project.emails].filter((email) => !applicationByEmail.get(email));
           if (!project.emails.size) unmatched.push('(no team-member emails)');
           unmatchedCount += unmatched.length;
-          const saved = await client.query(
-            `INSERT INTO devpost_projects (project_url, title, unmatched_emails, details)
-             VALUES ($1, $2, $3::jsonb, $4::jsonb)
-             ON CONFLICT (project_url) DO UPDATE
-               SET title = EXCLUDED.title, unmatched_emails = EXCLUDED.unmatched_emails,
-                   details = EXCLUDED.details, imported_at = NOW()
-             RETURNING id`,
-            [project.url, project.title, JSON.stringify(unmatched), JSON.stringify(project.details)],
-          );
+          let saved;
+          try {
+            saved = await client.query(
+              `INSERT INTO devpost_projects (project_url, title, unmatched_emails, details)
+               VALUES ($1, $2, $3::jsonb, $4::jsonb)
+               ON CONFLICT (project_url) DO UPDATE
+                 SET title = EXCLUDED.title, unmatched_emails = EXCLUDED.unmatched_emails,
+                     details = EXCLUDED.details, imported_at = NOW()
+               RETURNING id`,
+              [project.url, project.title, JSON.stringify(unmatched), JSON.stringify(project.details)],
+            );
+          } catch (error) {
+            error.projectTitle = project.title;
+            throw error;
+          }
           const id = saved.rows[0].id;
           await client.query('DELETE FROM devpost_project_members WHERE project_id = $1', [id]);
           const memberIds = [...new Set([...project.emails]
@@ -902,9 +931,13 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
           [projects.map((project) => project.url)],
         );
         await client.query('COMMIT');
-        return response.json({ imported: projects.length, unmatchedCount, draftsSkipped });
+        return response.json({ imported: projects.length, unmatchedCount, draftsSkipped, otherSkipped });
       } catch (error) {
-        await client.query('ROLLBACK');
+        await client.query('ROLLBACK').catch(() => {});
+        if (error.projectTitle) {
+          // Name the project so organizers can fix that row during the tight event-day window.
+          return response.status(400).json({ error: `Couldn't import "${error.projectTitle}": ${error.message}. Nothing was imported.` });
+        }
         return next(error);
       } finally {
         client.release();

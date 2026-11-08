@@ -75,6 +75,20 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
+  const requestPasswordReset = async (email) => authRequest('/api/auth/password-reset/request', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+
+  const resetPassword = async (token, password) => {
+    const data = await authRequest('/api/auth/password-reset', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    });
+    setUser(data.user);
+    return data.user;
+  };
+
   const signOut = async () => {
     await authRequest('/api/auth/signout', { method: 'POST' });
     // Reload on the public home page so the protected route cannot redirect
@@ -83,7 +97,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, googleEnabled, loading, signIn, signUp, verifyEmail, signOut }}>
+    <AuthContext.Provider value={{ user, googleEnabled, loading, signIn, signUp, verifyEmail, requestPasswordReset, resetPassword, signOut }}>
       {children}
     </AuthContext.Provider>
   );

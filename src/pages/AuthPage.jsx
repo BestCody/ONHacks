@@ -225,6 +225,13 @@ export default function AuthPage({ mode }) {
                 minLength={8}
                 required
               />
+              {!isSignUp && (
+                <p className="text-right text-sm">
+                  <Link to="/reset-password" className="text-black/60 underline underline-offset-2 hover:text-[#FF2E2E]">
+                    Forgot password?
+                  </Link>
+                </p>
+              )}
             </div>
 
             {isSignUp && (
@@ -272,6 +279,12 @@ export default function AuthPage({ mode }) {
               {switchLabel}
             </Link>
           </p>
+          {isSignUp && (
+            <p className="text-center text-xs text-black/50 mt-3">
+              Creating an account means we store your name and email as described in our{' '}
+              <Link to="/privacy" className="underline underline-offset-2 hover:text-[#FF2E2E]">Privacy Notice</Link>.
+            </p>
+          )}
         </section>
       </div>
     </main>

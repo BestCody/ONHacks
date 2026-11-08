@@ -7,6 +7,7 @@ import Home from '@/pages/Home';
 import Apply from '@/pages/Apply';
 import AuthPage from '@/pages/AuthPage';
 import VerifyEmail from '@/pages/VerifyEmail';
+import ResetPassword from '@/pages/ResetPassword';
 import Dashboard from '@/pages/Dashboard';
 import LegalPage from '@/pages/LegalPage';
 import { APP_PATHS } from '@/routes';
@@ -44,6 +45,7 @@ function App() {
           <Route path={APP_PATHS.signIn} element={<AuthPage key="signin" mode="signin" />} />
           <Route path={APP_PATHS.signUp} element={<AuthPage key="signup" mode="signup" />} />
           <Route path={APP_PATHS.verifyEmail} element={<VerifyEmail />} />
+          <Route path={APP_PATHS.resetPassword} element={<ResetPassword />} />
           <Route path={APP_PATHS.participant} element={<ProtectedRoute><Participant /></ProtectedRoute>} />
           <Route path={APP_PATHS.organizer} element={<Organizer />} />
           <Route

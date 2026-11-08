@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUpRight, LogOut, RotateCw, Search, X } from 'lucide-react';
 import { useScreenScale } from '@/hooks/useScreenScale';
 
@@ -72,7 +72,7 @@ function SignIn({ onSignedIn, notice }) {
   return (
     <main style={{ fontFamily: FONT }} className="min-h-screen bg-[#f5f5f7] flex items-center justify-center px-4 py-12 antialiased">
       <form onSubmit={submit} className="w-full max-w-sm rounded-[1.75rem] bg-white p-8 shadow-[0_2px_30px_rgba(0,0,0,0.06)]">
-        <p className="text-[0.875rem] font-medium uppercase tracking-[0.08em] text-[#86868b]">ONHacks 2026</p>
+        <p className="text-[0.875rem] font-medium uppercase tracking-[0.08em] text-[#6e6e73]">ONHacks 2026</p>
         <h1 className="mt-1 text-[2.25rem] font-semibold tracking-tight text-[#1d1d1f]">Judging</h1>
         <p className="mt-2 text-[1.0625rem] leading-relaxed text-[#6e6e73]">Sign in with your full name and the judge password.</p>
         <label className="mt-7 block text-[0.875rem] font-medium text-[#6e6e73]">Your name
@@ -90,40 +90,127 @@ function SignIn({ onSignedIn, notice }) {
   );
 }
 
+// An unsaved comment is kept in this tab's storage, so it survives a reload or the judge being
+// signed out mid-sentence.
+const draftKey = (id) => `onhacks-judge-draft-${id}`;
+function readDraft(id) {
+  try {
+    return window.sessionStorage.getItem(draftKey(id));
+  } catch {
+    return null;
+  }
+}
+function writeDraft(id, value) {
+  try {
+    if (value === null) window.sessionStorage.removeItem(draftKey(id));
+    else window.sessionStorage.setItem(draftKey(id), value);
+  } catch {
+    // Storage can be unavailable (private browsing); the comment just isn't kept across reloads.
+  }
+}
+
 function ProjectCard({ project, onSaved, onSignedOut }) {
   const [score, setScore] = useState(project.review.score);
-  const [savedComment, setSavedComment] = useState(project.review.comment);
-  const [draft, setDraft] = useState(project.review.comment);
-  const [updatedAt, setUpdatedAt] = useState(project.review.updatedAt);
-  const [status, setStatus] = useState('');
+  const [saved, setSaved] = useState({
+    score: project.review.score, comment: project.review.comment, updatedAt: project.review.updatedAt,
+  });
+  const [draft, setDraft] = useState(() => readDraft(project.id) ?? project.review.comment);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [expanded, setExpanded] = useState(false);
-  const dirty = draft.trim() !== savedComment;
+  const [clamped, setClamped] = useState(false);
+  const aboutRef = useRef(null);
+  const ratingRefs = useRef([]);
+  // Saves run one at a time; the newest change waits in `queued` and is sent next, so a rating
+  // tapped while a comment is saving is never dropped and the last change always wins.
+  const inFlight = useRef(false);
+  const queued = useRef(null);
+  const savedRef = useRef(saved);
+  savedRef.current = saved;
+  const dirty = draft.trim() !== saved.comment;
 
-  async function save(nextScore, comment) {
-    setStatus('saving');
+  useEffect(() => {
+    writeDraft(project.id, dirty ? draft : null);
+  }, [project.id, draft, dirty]);
+
+  // Show a newer review loaded by Refresh (for example one saved from the judge's other device),
+  // unless this card has changes of its own that haven't finished saving.
+  useEffect(() => {
+    const next = project.review;
+    const current = savedRef.current;
+    if (inFlight.current || queued.current) return;
+    if (next.score === current.score && next.comment === current.comment && next.updatedAt === current.updatedAt) return;
+    setSaved({ score: next.score, comment: next.comment, updatedAt: next.updatedAt });
+    setScore(next.score);
+    setDraft((value) => (value.trim() === current.comment ? next.comment : value));
+  }, [project.review]);
+
+  useLayoutEffect(() => {
+    const element = aboutRef.current;
+    if (!element) return undefined;
+    const measure = () => setClamped(element.scrollHeight > element.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [project.about, expanded]);
+
+  async function run(payload) {
+    inFlight.current = true;
+    setSaving(true);
     setError('');
     try {
       const { review } = await request(`/api/judges/projects/${project.id}/review`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score: nextScore, comment }),
+        body: JSON.stringify(payload),
       });
-      setScore(review.score);
-      setSavedComment(review.comment);
-      setDraft((current) => (current.trim() === comment.trim() ? review.comment : current));
-      setUpdatedAt(review.updatedAt);
-      setStatus('saved');
-      onSaved(project.id, review);
+      if (!queued.current) {
+        setSaved({ score: review.score, comment: review.comment, updatedAt: review.updatedAt });
+        setScore(review.score);
+        setDraft((value) => (value.trim() === payload.comment ? review.comment : value));
+        onSaved(project.id, review);
+      }
     } catch (failure) {
-      if (failure.status === 401) onSignedOut(failure.message);
-      setStatus('');
+      if (failure.status === 401) {
+        queued.current = null;
+        onSignedOut(failure.message);
+        return;
+      }
       setError(failure.message);
+      if (!queued.current) setScore(savedRef.current.score);
+    } finally {
+      inFlight.current = false;
+      const next = queued.current;
+      queued.current = null;
+      if (next) run(next);
+      else setSaving(false);
     }
   }
 
-  const statusText = status === 'saving'
+  function save(nextScore, comment) {
+    const payload = { score: nextScore, comment };
+    if (inFlight.current) queued.current = payload;
+    else run(payload);
+  }
+
+  function choose(value) {
+    if (value === score) return;
+    setScore(value);
+    save(value, draft.trim());
+  }
+
+  function onRatingKey(event, value) {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const next = Math.min(5, Math.max(1, value + step));
+    ratingRefs.current[next - 1]?.focus();
+    choose(next);
+  }
+
+  const statusText = saving
     ? 'Saving…'
-    : error || (dirty ? 'Unsaved comment' : updatedAt ? `Saved at ${formatTime(updatedAt)}` : 'Not rated yet');
+    : error || (dirty ? 'Unsaved comment' : saved.updatedAt ? `Saved at ${formatTime(saved.updatedAt)}` : 'Not rated yet');
 
   return (
     <article className="rounded-[1.375rem] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.05] sm:p-7">
@@ -136,15 +223,16 @@ function ProjectCard({ project, onSaved, onSignedOut }) {
           {project.members.length > 0 && <p className="mt-1 text-[1.0625rem] text-[#6e6e73]">{project.members.join(', ')}</p>}
         </div>
         {score && (
-          <span className="shrink-0 rounded-full bg-[#1d1d1f] px-3 py-1 text-[0.875rem] font-semibold text-white" aria-label={`You rated this ${score} out of 5`}>{score}/5</span>
+          <span className="shrink-0 rounded-full bg-[#1d1d1f] px-3 py-1 text-[0.875rem] font-semibold text-white">{score}/5</span>
         )}
       </div>
 
       {project.about && (
         <div className="mt-3">
-          <p className={`whitespace-pre-line text-[1.0625rem] leading-relaxed text-[#1d1d1f] ${expanded ? '' : 'line-clamp-3'}`}>{project.about}</p>
-          {project.about.length > 220 && (
-            <button type="button" onClick={() => setExpanded((value) => !value)} className="mt-1 text-[1.0625rem] font-medium text-[#1d1d1f] hover:underline underline-offset-4">
+          <p ref={aboutRef} id={`about-${project.id}`} className={`whitespace-pre-line [overflow-wrap:anywhere] text-[1.0625rem] leading-relaxed text-[#1d1d1f] ${expanded ? '' : 'line-clamp-3'}`}>{project.about}</p>
+          {(clamped || expanded) && (
+            <button type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded} aria-controls={`about-${project.id}`}
+              className="mt-1 text-[1.0625rem] font-medium text-[#1d1d1f] hover:underline underline-offset-4">
               {expanded ? 'Less' : 'More'}
             </button>
           )}
@@ -167,31 +255,34 @@ function ProjectCard({ project, onSaved, onSignedOut }) {
 
       <div className="mt-6 border-t border-black/[0.06] pt-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="text-[1.0625rem] font-semibold text-[#1d1d1f]">Your rating</p>
-          <p className="text-[0.875rem] text-[#86868b]">1 = weak · 5 = outstanding</p>
+          <p id={`rating-label-${project.id}`} className="text-[1.0625rem] font-semibold text-[#1d1d1f]">Your rating</p>
+          <p className="text-[0.875rem] text-[#6e6e73]">1 = weak · 5 = outstanding</p>
         </div>
-        <div role="radiogroup" aria-label={`Your rating for ${project.title}`} className="mt-3 grid grid-cols-5 gap-2">
+        <div role="radiogroup" aria-labelledby={`rating-label-${project.id}`} aria-describedby={`title-${project.id}`} className="mt-3 grid grid-cols-5 gap-2">
           {[1, 2, 3, 4, 5].map((value) => (
             <button key={value} type="button" role="radio" aria-checked={score === value}
-              onClick={() => { if (score !== value) save(value, draft.trim()); }}
-              disabled={status === 'saving'}
-              className={`h-12 rounded-xl text-[1.125rem] font-semibold transition ${score === value
+              ref={(element) => { ratingRefs.current[value - 1] = element; }}
+              tabIndex={(score ?? 1) === value ? 0 : -1}
+              onClick={() => choose(value)}
+              onKeyDown={(event) => onRatingKey(event, value)}
+              className={`h-12 rounded-xl text-[1.125rem] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1d1d1f] ${score === value
                 ? 'bg-[#1d1d1f] text-white'
                 : 'bg-[#f5f5f7] text-[#1d1d1f] hover:bg-[#e8e8ed]'}`}>
               {value}
             </button>
           ))}
         </div>
+        <span id={`title-${project.id}`} className="sr-only">for {project.title}</span>
         <label className="sr-only" htmlFor={`comment-${project.id}`}>Comment on {project.title}</label>
         <textarea id={`comment-${project.id}`} value={draft} maxLength={2000} rows={3}
-          onChange={(event) => { setDraft(event.target.value); setStatus(''); }}
-          onBlur={() => { if (dirty && status !== 'saving') save(score, draft.trim()); }}
+          onChange={(event) => { setDraft(event.target.value); setError(''); }}
+          onBlur={() => { if (dirty) save(score, draft.trim()); }}
           placeholder="Add a comment (optional)"
-          className="mt-4 block w-full resize-y rounded-xl bg-[#f5f5f7] px-4 py-3 text-[1.0625rem] leading-relaxed text-[#1d1d1f] outline-none transition placeholder:text-[#86868b] focus:bg-white focus:ring-2 focus:ring-[#1d1d1f]" />
+          className="mt-4 block w-full resize-y rounded-xl bg-[#f5f5f7] px-4 py-3 text-[1.0625rem] leading-relaxed text-[#1d1d1f] outline-none transition placeholder:text-[#6e6e73] focus:bg-white focus:ring-2 focus:ring-[#1d1d1f]" />
         <div className="mt-3 flex items-center justify-between gap-3">
-          <p className={`text-[0.875rem] ${error ? 'font-medium text-[#1d1d1f]' : 'text-[#86868b]'}`} role={error ? 'alert' : undefined} aria-live="polite">{statusText}</p>
-          <button type="button" onClick={() => save(score, draft.trim())} disabled={!dirty || status === 'saving'}
-            className="h-9 shrink-0 rounded-full bg-[#1d1d1f] px-4 text-[0.9375rem] font-medium text-white transition hover:bg-black disabled:bg-[#d2d2d7]">
+          <p className={`text-[0.875rem] ${error ? 'font-medium text-[#1d1d1f]' : 'text-[#6e6e73]'}`} role={error ? 'alert' : undefined} aria-live="polite">{statusText}</p>
+          <button type="button" onClick={() => { if (dirty) save(score, draft.trim()); }} aria-disabled={!dirty}
+            className={`h-9 shrink-0 rounded-full px-4 text-[0.9375rem] font-medium text-white transition ${dirty ? 'bg-[#1d1d1f] hover:bg-black' : 'cursor-default bg-[#d2d2d7]'}`}>
             Save Comment
           </button>
         </div>
@@ -223,6 +314,10 @@ export default function Judges() {
     setSession(false);
     setProjects(null);
     setNotice(message);
+    // A shared laptop's next judge starts with a clean view.
+    setQuery('');
+    setFilter('all');
+    setJustRated(new Set());
   }
 
   async function loadProjects() {
@@ -241,7 +336,7 @@ export default function Judges() {
 
   useEffect(() => {
     if (session) loadProjects();
-  }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session]);
 
   async function signOut() {
     await request('/api/judges/signout', { method: 'POST' }).catch(() => {});
@@ -310,10 +405,10 @@ export default function Judges() {
 
         <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-[1.125rem] -translate-y-1/2 text-[#86868b]" aria-hidden="true" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-[1.125rem] -translate-y-1/2 text-[#6e6e73]" aria-hidden="true" />
             <input type="search" value={query} onChange={(event) => setQuery(event.target.value)}
               placeholder="Search projects, teammates, tools, or rooms" aria-label="Search projects"
-              className="h-11 w-full rounded-xl bg-black/[0.06] pl-10 pr-10 text-[1.0625rem] outline-none transition placeholder:text-[#86868b] focus:bg-white focus:ring-2 focus:ring-[#1d1d1f] [&::-webkit-search-cancel-button]:hidden" />
+              className="h-11 w-full rounded-xl bg-black/[0.06] pl-10 pr-10 text-[1.0625rem] outline-none transition placeholder:text-[#6e6e73] focus:bg-white focus:ring-2 focus:ring-[#1d1d1f] [&::-webkit-search-cancel-button]:hidden" />
             {query && (
               <button type="button" onClick={() => setQuery('')} aria-label="Clear search"
                 className="absolute right-2.5 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full bg-[#86868b] text-white">
@@ -322,12 +417,12 @@ export default function Judges() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <div role="tablist" aria-label="Filter projects" className="flex flex-1 rounded-[0.625rem] bg-black/[0.06] p-0.5 sm:flex-none">
+            <div role="group" aria-label="Filter projects" className="flex flex-1 rounded-[0.625rem] bg-black/[0.06] p-0.5 sm:flex-none">
               {FILTERS.map(({ id, label }) => (
-                <button key={id} type="button" role="tab" aria-selected={filter === id} onClick={() => chooseFilter(id)}
+                <button key={id} type="button" aria-pressed={filter === id} onClick={() => chooseFilter(id)}
                   className={`h-10 flex-1 whitespace-nowrap rounded-[0.5rem] px-3 text-[0.9375rem] font-medium transition sm:flex-none ${filter === id
                     ? 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.12)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}>
-                  {label} <span className="tabular-nums text-[#86868b]">{counts[id]}</span>
+                  {label} <span className="tabular-nums text-[#6e6e73]">{counts[id]}</span>
                 </button>
               ))}
             </div>

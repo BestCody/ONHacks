@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { config } from 'dotenv';
 import pg from 'pg';
 import { buildAcceptanceEmail } from '../server/acceptanceEmail.js';
-import { emailSettings, sendEmail } from '../server/email.js';
+import { brevoRemainingToday, EmailError, emailSettings, sendEmail } from '../server/email.js';
 import { EVENT_DETAILS } from '../src/eventDetails.js';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -15,7 +15,6 @@ config({ path: path.join(projectRoot, '.env'), quiet: true });
 const usage = `Usage:
   npm run applicants -- list [--all]
   npm run applicants -- accept <application id>... [--send]
-  npm run applicants -- accept --all-pending [--send]
   npm run applicants -- mark-sent <application id>...
   npm run applicants -- retry <application id>...
 
@@ -41,16 +40,17 @@ function parseArguments(argv) {
   const [command, ...rest] = argv;
   const flags = new Set(rest.filter((value) => value.startsWith('--')));
   const values = rest.filter((value) => !value.startsWith('--'));
-  const known = { list: ['--all'], accept: ['--send', '--all-pending'], 'mark-sent': [], retry: [] }[command];
+  // Accepting is always by explicit ID: ONHacks doesn't accept every applicant, so there is no
+  // "accept everyone pending" option that could email people who weren't chosen.
+  const known = { list: ['--all'], accept: ['--send'], 'mark-sent': [], retry: [] }[command];
   if (!known || [...flags].some((flag) => !known.includes(flag))) return null;
   if (command === 'list') return values.length ? null : { command, all: flags.has('--all') };
 
   const ids = values.map(Number);
   if (ids.some((id) => !Number.isSafeInteger(id) || id < 1)) return null;
-  if (command === 'mark-sent' || command === 'retry') return ids.length ? { command, ids: [...new Set(ids)] } : null;
-  const allPending = flags.has('--all-pending');
-  if (allPending === Boolean(ids.length)) return null;
-  return { command, ids: [...new Set(ids)], allPending, send: flags.has('--send') };
+  if (!ids.length) return null;
+  if (command === 'mark-sent' || command === 'retry') return { command, ids: [...new Set(ids)] };
+  return { command, ids: [...new Set(ids)], send: flags.has('--send') };
 }
 
 async function existingColumns(client) {
@@ -103,16 +103,12 @@ async function listApplicants(client, all) {
   console.log(`${result.rowCount} application(s): ${Object.entries(counts).map(([status, count]) => `${count} ${status}`).join(', ') || 'none'}.`);
 }
 
-async function selectApplicants(client, { ids, allPending }) {
+async function selectApplicants(client, { ids }) {
   const columns = 'id, full_name, email, accepted, acceptance_email_sent_at, acceptance_email_attempted_at';
-  const result = allPending
-    ? await client.query(`SELECT ${columns} FROM event_applications WHERE acceptance_email_sent_at IS NULL ORDER BY id`)
-    : await client.query(`SELECT ${columns} FROM event_applications WHERE id = ANY($1::bigint[]) ORDER BY id`, [ids]);
-  if (!allPending) {
-    const found = new Set(result.rows.map((row) => Number(row.id)));
-    const missing = ids.filter((id) => !found.has(id));
-    if (missing.length) throw new Error(`No application has id ${missing.join(', ')}. Nothing was changed.`);
-  }
+  const result = await client.query(`SELECT ${columns} FROM event_applications WHERE id = ANY($1::bigint[]) ORDER BY id`, [ids]);
+  const found = new Set(result.rows.map((row) => Number(row.id)));
+  const missing = ids.filter((id) => !found.has(id));
+  if (missing.length) throw new Error(`No application has id ${missing.join(', ')}. Nothing was changed.`);
   return result.rows;
 }
 
@@ -155,7 +151,9 @@ async function sendAcceptance(row, settings) {
         tags: ['acceptance'],
       });
     } catch (error) {
-      if (error.uncertain) {
+      // Anything other than a clear answer from Brevo (including unexpected errors) may mean the
+      // email went out, so it's treated as unconfirmed rather than safe to retry.
+      if (!(error instanceof EmailError) || error.uncertain) {
         throw new SendError(`${error.message} The email may or may not have been sent.`, { stopRun: true, uncertain: true });
       }
       if (error.status === 429 && attempt < maxAttempts) {
@@ -206,7 +204,15 @@ async function acceptApplicants(client, options) {
   }
   const hoursLeft = Math.floor((deadline - Date.now()) / 3_600_000);
   if (hoursLeft < 72) console.log(`Note: only ${hoursLeft} hour(s) remain before RSVPs close on ${EVENT_DETAILS.rsvpDeadlineLabel}.`);
-  if (targets.length > 290) console.log(`Note: Brevo's free plan sends 300 emails a day (sign-up emails included), so this run will likely stop partway. Run it again the next day to finish.`);
+  if (Date.now() <= Date.parse(EVENT_DETAILS.applicationsCloseAt)) {
+    console.log(`Note: applications are still open until ${EVENT_DETAILS.applicationsCloseLabel}. Brevo's 300 emails a day are shared with sign-up emails, so large batches are best sent after applications close.`);
+  }
+  const settingsForQuota = emailSettings();
+  const remaining = settingsForQuota ? await brevoRemainingToday(settingsForQuota) : null;
+  if (remaining !== null) {
+    console.log(`Brevo can send ${remaining} more email(s) today.`);
+    if (targets.length > remaining) console.log(`Note: that's fewer than ${targets.length}, so this run will stop partway. Run the same command again tomorrow to finish.`);
+  }
 
   if (!options.send) {
     const previewPath = await savePreview(targets[0]);
@@ -294,9 +300,32 @@ async function acceptApplicants(client, options) {
   }
 }
 
-// Resolves applicants flagged "Unconfirmed" after checking Brevo's transactional log.
+// Resolves applicants flagged "Unconfirmed" after checking Brevo's transactional log. It takes the
+// same lock as a send, so it can't change someone whose email is still being sent, and retry
+// waits until an attempt is 15 minutes old so Brevo's log has caught up.
 async function resolveUnconfirmed(client, { command, ids }) {
   await requireLatestSchema(client);
+  const lock = await client.query('SELECT pg_try_advisory_lock($1) AS acquired', [lockKey]);
+  if (!lock.rows[0].acquired) throw new Error('An acceptance run is in progress. Wait for it to finish, then try again.');
+  try {
+    return await resolveUnconfirmedLocked(client, { command, ids });
+  } finally {
+    await client.query('SELECT pg_advisory_unlock($1)', [lockKey]).catch(() => {});
+  }
+}
+
+async function resolveUnconfirmedLocked(client, { command, ids }) {
+  if (command === 'retry') {
+    const young = await client.query(
+      `SELECT id FROM event_applications
+       WHERE id = ANY($1::bigint[]) AND acceptance_email_sent_at IS NULL
+         AND acceptance_email_attempted_at > NOW() - INTERVAL '15 minutes'`,
+      [ids],
+    );
+    if (young.rowCount) {
+      throw new Error(`Wait 15 minutes after the attempt before retrying #${young.rows.map((row) => row.id).join(', #')}, so Brevo's log shows whether it was delivered. Nothing was changed.`);
+    }
+  }
   const result = command === 'mark-sent'
     ? await client.query(
       `UPDATE event_applications SET acceptance_email_sent_at = acceptance_email_attempted_at
@@ -332,7 +361,12 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+const client = new pg.Client({
+  connectionString: process.env.DATABASE_URL,
+  // If this computer drops off the network mid-run, the database lets go of locks within a minute.
+  idle_in_transaction_session_timeout: 60_000,
+  lock_timeout: 10_000,
+});
 // A dropped connection fails the next query with a clear message instead of crashing mid-run.
 client.on('error', (error) => console.error(`Database connection error: ${error.message}`));
 let connected = false;

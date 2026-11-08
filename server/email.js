@@ -34,6 +34,22 @@ const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => (
 export const textToHtml = (text) => text.split(/\n{2,}/)
   .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`).join('');
 
+// How many more emails Brevo will send today on a daily-limited plan, or null if unknown.
+export async function brevoRemainingToday(settings) {
+  try {
+    const response = await fetch('https://api.brevo.com/v3/account', {
+      headers: { 'api-key': settings.apiKey, Accept: 'application/json' },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const daily = (data.plan || []).find((plan) => plan.creditsType === 'sendLimit');
+    return Number.isFinite(daily?.credits) ? daily.credits : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function sendEmail(settings, { to, toName, subject, text, html, replyTo, tags }) {
   let response;
   try {

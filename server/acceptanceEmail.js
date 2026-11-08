@@ -50,6 +50,8 @@ export function buildAcceptanceEmail(fullName) {
     '',
     'See you on the 15th!',
     'The ONHacks Team',
+    '',
+    `Privacy update: since you applied, we've updated our Privacy Notice (${siteUrl}/privacy). It now explains how we handle the signed waiver you upload (only the ONHacks organizing team can view it, and it's deleted automatically 45 days after upload), what judges see, and sponsor sharing for prizes and perks.`,
   ].join('\n');
 
   const paragraph = (content) => `<p style="margin:0 0 16px;">${content}</p>`;
@@ -77,6 +79,7 @@ ${heading('On the day')}
 </ul>
 ${paragraph(`Questions? Reply to this email or reach us at ${link(`mailto:${contactEmail}`, contactEmail)}. You can also find us on Instagram at ${link(instagramUrl, '@onhacks_')}.`)}
 <p style="margin:0;">See you on the 15th!<br>The ONHacks Team</p>
+<p style="margin:24px 0 0;font-size:13px;color:#52606d;"><strong>Privacy update:</strong> since you applied, we&#39;ve updated our ${link(`${siteUrl}/privacy`, 'Privacy Notice')}. It now explains how we handle the signed waiver you upload (only the ONHacks organizing team can view it, and it&#39;s deleted automatically 45 days after upload), what judges see, and sponsor sharing for prizes and perks.</p>
 </div>
 </div>
 </body>

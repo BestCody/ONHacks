@@ -7,7 +7,9 @@ import { Label } from '@/components/ui/label';
 
 import { ArrowLeft, Loader2, Send } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { APPLICATIONS_CLOSED_MESSAGE, applicationsClosed } from '@/eventDetails';
+import { APPLICATIONS_CLOSED_MESSAGE, EVENT_DETAILS, applicationsClosed } from '@/eventDetails';
+
+const APPLICATION_DEADLINE = `${EVENT_DETAILS.applicationsCloseLabel} at 11:59 PM (Toronto time)`;
 import { useScreenScale } from '@/hooks/useScreenScale';
 
 const BG = '/assets/apply-bg.webp';
@@ -234,7 +236,7 @@ export default function Apply() {
           </h1>
 
           <p className="text-black/60 mb-8">
-            Tell us about you and get ready to build something awesome!
+            Tell us about you and get ready to build something awesome! Applications close {APPLICATION_DEADLINE}.
           </p>
 
           <p className="mb-5 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">

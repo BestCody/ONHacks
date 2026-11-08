@@ -37,6 +37,11 @@ const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(serverDirectory, '..');
 const distDirectory = path.join(projectRoot, 'dist');
 const clientRoutes = new Set(Object.values(APP_PATHS).map((route) => route.toLowerCase()));
+// Signed-in and staff pages that search engines shouldn't list.
+const privateRoutes = new Set([
+  APP_PATHS.organizer, APP_PATHS.judges, APP_PATHS.dashboard, APP_PATHS.participant,
+  APP_PATHS.apply, APP_PATHS.verifyEmail, APP_PATHS.resetPassword,
+].map((route) => route.toLowerCase()));
 const databaseUrl = process.env.DATABASE_URL;
 const sessionCookieName = isProduction ? '__Host-onhacks_session' : 'onhacks_session';
 const googleStateCookieName = isProduction ? '__Host-onhacks_google_state' : 'onhacks_google_state';
@@ -69,6 +74,11 @@ const pool = databaseUrl
   ? new Pool({
       connectionString: databaseUrl,
       connectionTimeoutMillis: 10_000,
+      // A stuck query or a row locked by an interrupted local script fails fast instead of
+      // holding pool connections until every route times out.
+      statement_timeout: 30_000,
+      lock_timeout: 5_000,
+      idle_in_transaction_session_timeout: 60_000,
     })
   : null;
 // A dropped database connection emits 'error' on the pool (for idle clients) or on the
@@ -109,19 +119,24 @@ const signInIpRateLimit = rateLimit({
   handler: rateLimitResponse('Too many sign-in attempts from this network. Please try again shortly.'),
 });
 
+// Failed sign-ins lock an account per network, so someone elsewhere guessing a hacker's
+// password can't lock the real hacker out.
+const emailAndNetworkKey = (request) => `${normalizeEmailKey(request)}|${clientIpKey(request)}`;
+
 const signInEmailRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
-  keyGenerator: normalizeEmailKey,
+  keyGenerator: emailAndNetworkKey,
   skipSuccessfulRequests: true,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   handler: rateLimitResponse('Too many failed sign-in attempts for this account. Please try again in a few minutes.'),
 });
 
+// Every sign-up sends a verification email, so this is kept low to protect the daily email quota.
 const signUpIpRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 300,
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
   keyGenerator: clientIpKey,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
@@ -166,6 +181,34 @@ const verificationIpRateLimit = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   handler: rateLimitResponse('Too many verification requests. Please try again later.'),
+});
+
+const passwordResetIpRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  keyGenerator: clientIpKey,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: rateLimitResponse('Too many password reset requests from this network. Please try again later.'),
+});
+
+const passwordResetEmailRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 3,
+  keyGenerator: normalizeEmailKey,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: rateLimitResponse('Too many password reset requests for this email. Please try again later.'),
+});
+
+const passwordResetConfirmRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
+  keyGenerator: clientIpKey,
+  skipSuccessfulRequests: true,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: rateLimitResponse('Too many password reset attempts. Please try again later.'),
 });
 
 const stateChangingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -235,6 +278,23 @@ const eventApplicationTable = `
 
   CREATE INDEX IF NOT EXISTS event_applications_user_id_idx ON event_applications(user_id);
   CREATE INDEX IF NOT EXISTS event_applications_email_idx ON event_applications(email);
+`;
+
+// Password resets, and a log of the emails the site itself sends, so a burst of sign-ups can
+// never use up the whole Brevo daily quota that acceptance emails also need.
+const accountEmailSchema = `
+  CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    token_hash TEXT PRIMARY KEY,
+    user_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE TABLE IF NOT EXISTS email_sends (
+    id BIGSERIAL PRIMARY KEY,
+    kind TEXT NOT NULL,
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS email_sends_sent_at_idx ON email_sends(sent_at);
 `;
 
 const eventApplicationConsentMigration = `
@@ -353,6 +413,15 @@ async function verifyPassword(password, storedHash) {
   return derivedKey.length === storedKey.length && timingSafeEqual(derivedKey, storedKey);
 }
 
+// Names go into emails sent from hello@onhacks.ca, so they can't carry links or line breaks.
+function nameProblem(name) {
+  if (name.length < 2 || name.length > 120) return 'Enter your name (2 to 120 characters).';
+  if (/\p{Cc}/u.test(name) || /[<>]|:\/\/|www\.|https?:/i.test(name)) {
+    return 'Enter just your name, without links or symbols like < and >.';
+  }
+  return '';
+}
+
 function validateAuthInput(body = {}, { requireName = false } = {}) {
   const input = body && typeof body === 'object' ? body : {};
   const name = clean(input.name);
@@ -360,8 +429,9 @@ function validateAuthInput(body = {}, { requireName = false } = {}) {
   const password = typeof input.password === 'string' ? input.password : '';
   const errors = {};
 
-  if (requireName && (name.length < 2 || name.length > 120)) {
-    errors.name = 'Enter your name (2 to 120 characters).';
+  if (requireName) {
+    const problem = nameProblem(name);
+    if (problem) errors.name = problem;
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
     errors.email = 'Enter a valid email address.';
@@ -489,11 +559,44 @@ async function createSession(userId, response) {
   setSessionCookie(response, token);
 }
 
+// The site's own emails (verification, receipts, password resets) stop at this many per 24
+// hours, leaving the rest of Brevo's 300-a-day free quota for acceptance emails.
+const siteEmailDailyCap = 150;
+const emailCapMessage = "We've reached today's email limit, so we couldn't send that email. If you use Gmail, use Continue with Google instead, or try again tomorrow.";
+
+async function siteEmailCapReached() {
+  const result = await pool.query(
+    "SELECT COUNT(*)::integer AS count FROM email_sends WHERE sent_at > NOW() - INTERVAL '24 hours'",
+  );
+  return result.rows[0].count >= siteEmailDailyCap;
+}
+
+async function sendSiteEmail(kind, message) {
+  if (await siteEmailCapReached()) {
+    const error = new Error('The site has reached its daily email limit.');
+    error.code = 'email_cap_reached';
+    throw error;
+  }
+  const record = () => pool.query('INSERT INTO email_sends (kind) VALUES ($1)', [kind]).catch(() => {});
+  try {
+    await sendEmail(emailConfig, message);
+  } catch (error) {
+    // With no clear answer from Brevo the email may still have gone out, so count it.
+    if (error.uncertain) await record();
+    throw error;
+  }
+  await record();
+}
+
 async function sendVerificationEmail(user) {
   if (!emailEnabled || !siteOrigin) {
     throw new Error('Email verification is not configured.');
   }
 
+  const previous = await pool.query(
+    'SELECT token_hash, expires_at, created_at FROM email_verification_tokens WHERE user_id = $1',
+    [user.id],
+  );
   const token = randomBytes(32).toString('hex');
   const tokenHash = hashSessionToken(token);
   const expiresAt = new Date(Date.now() + verificationDurationSeconds * 1000);
@@ -514,7 +617,7 @@ async function sendVerificationEmail(user) {
   })[character]);
 
   try {
-    await sendEmail(emailConfig, {
+    await sendSiteEmail('verification', {
       to: user.email,
       toName: user.full_name,
       tags: ['verification'],
@@ -532,7 +635,20 @@ async function sendVerificationEmail(user) {
       html: `<p>Hi ${safeName},</p><p>Confirm your email to finish creating your ONHacks account. Open the link below and enter the password you chose:</p><p><a href="${verificationUrl}">Verify email</a></p><p>This link expires in 24 hours. If you did not create this account, you can ignore this message.</p><p>The ONHacks team</p>`,
     });
   } catch (error) {
-    await pool.query('DELETE FROM email_verification_tokens WHERE token_hash = $1', [tokenHash]);
+    // If the email may have gone out, keep the new link working. If it definitely didn't,
+    // put back the link from the earlier email so that one still works.
+    if (!error.uncertain) {
+      const earlier = previous.rows[0];
+      if (earlier) {
+        await pool.query(
+          `UPDATE email_verification_tokens SET token_hash = $3, expires_at = $4, created_at = $5
+           WHERE user_id = $1 AND token_hash = $2`,
+          [user.id, tokenHash, earlier.token_hash, earlier.expires_at, earlier.created_at],
+        );
+      } else {
+        await pool.query('DELETE FROM email_verification_tokens WHERE token_hash = $1', [tokenHash]);
+      }
+    }
     throw error;
   }
 }
@@ -578,8 +694,9 @@ function validateEventApplication(body = {}) {
   };
 
   const errors = {};
-  if (!application.fullName || application.fullName.length > 120) {
-    errors.name = 'Enter a name up to 120 characters.';
+  const nameIssue = nameProblem(application.fullName);
+  if (nameIssue) {
+    errors.name = nameIssue;
   }
   if (!['Yes', 'No'].includes(application.team)) {
     errors.team = 'Choose whether you are with a team.';
@@ -616,7 +733,7 @@ async function sendApplicationReceipt(application) {
   if (!emailEnabled) return;
 
   try {
-    await sendEmail(emailConfig, {
+    await sendSiteEmail('application-receipt', {
       to: application.email,
       toName: application.fullName,
       tags: ['application-receipt'],
@@ -632,7 +749,7 @@ async function sendApplicationReceipt(application) {
       ].join('\n'),
     });
   } catch (error) {
-    console.error('Application receipt delivery failed:', error);
+    console.error('Application receipt delivery failed:', String(error?.message || error).slice(0, 200));
   }
 }
 
@@ -662,6 +779,11 @@ app.use(helmet({
     : false,
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
+// Only this site may use the camera (the organizers' meal scanner); nothing else needs devices.
+app.use((_request, response, next) => {
+  response.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()');
+  next();
+});
 
 function isTrustedOrigin(request) {
   const origin = request.get('origin');
@@ -770,7 +892,8 @@ app.get('/api/auth/google/callback', async (request, response) => {
     await createSession(userRecord.id, response);
     return response.redirect(returnTo);
   } catch (error) {
-    console.error('Google authentication failed:', error);
+    // Some token errors include the whole decoded token (name, email), so log the message only.
+    console.error('Google authentication failed:', String(error?.message || error).slice(0, 200));
     return response.redirect('/signin?error=google_auth_failed');
   }
 });
@@ -794,9 +917,15 @@ app.post('/api/auth/signup', signUpIpRateLimit, signUpEmailRateLimit, async (req
   }
 
   let userRecord;
+  let passwordHash;
+  try {
+    // Hash before taking a database connection so a burst of sign-ups can't exhaust the pool.
+    passwordHash = await hashPassword(password);
+  } catch (error) {
+    return next(error);
+  }
   const client = await pool.connect();
   try {
-    const passwordHash = await hashPassword(password);
     await client.query('BEGIN');
     const result = await client.query(
       `INSERT INTO users (full_name, email, password_hash)
@@ -829,7 +958,11 @@ app.post('/api/auth/signup', signUpIpRateLimit, signUpEmailRateLimit, async (req
     await sendVerificationEmail(userRecord);
     return response.status(202).json({ verificationRequired: true, email });
   } catch (error) {
-    console.error('Verification email delivery failed:', error);
+    if (error.code === 'email_cap_reached') {
+      return response.status(503).json({ error: `Your account was created. ${emailCapMessage}` });
+    }
+    console.error('Verification email delivery failed:', String(error?.message || error).slice(0, 200));
+    if (error.uncertain) return response.status(202).json({ verificationRequired: true, email });
     return response.status(503).json({ error: 'Your account was created, but we could not send the verification email. Sign in to try again.' });
   }
 });
@@ -863,8 +996,11 @@ app.post('/api/auth/signin', signInIpRateLimit, signInEmailRateLimit, async (req
       try {
         await sendVerificationEmailIfNeeded(userRecord);
       } catch (error) {
-        console.error('Verification email delivery failed:', error);
-        return response.status(503).json({ error: 'We could not send your verification email right now. Please try again later.' });
+        if (error.code === 'email_cap_reached') return response.status(503).json({ error: emailCapMessage });
+        console.error('Verification email delivery failed:', String(error?.message || error).slice(0, 200));
+        if (!error.uncertain) {
+          return response.status(503).json({ error: 'We could not send your verification email right now. Please try again later.' });
+        }
       }
       return response.status(403).json({
         error: 'Please verify your email before signing in. Check your inbox for the verification link.',
@@ -890,6 +1026,7 @@ app.post('/api/auth/verify-email', verificationIpRateLimit, async (request, resp
     return response.status(400).json({ error: 'Invalid or expired verification link or password.' });
   }
 
+  let verifiedUser = null;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -903,22 +1040,155 @@ app.post('/api/auth/verify-email', verificationIpRateLimit, async (request, resp
       [hashSessionToken(token)],
     );
     const userRecord = result.rows[0];
-    if (!userRecord || !(await verifyPassword(password, userRecord.password_hash))) {
+    if (userRecord && await verifyPassword(password, userRecord.password_hash)) {
+      await client.query('UPDATE users SET email_verified_at = NOW() WHERE id = $1', [userRecord.id]);
+      await client.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userRecord.id]);
+      await client.query('DELETE FROM sessions WHERE user_id = $1', [userRecord.id]);
+      await client.query('COMMIT');
+      verifiedUser = userRecord;
+    } else {
       await client.query('ROLLBACK');
-      return response.status(400).json({ error: 'Invalid or expired verification link or password.' });
     }
-
-    await client.query('UPDATE users SET email_verified_at = NOW() WHERE id = $1', [userRecord.id]);
-    await client.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userRecord.id]);
-    await client.query('DELETE FROM sessions WHERE user_id = $1', [userRecord.id]);
-    await client.query('COMMIT');
-    await createSession(userRecord.id, response);
-    return response.json({ user: publicUser(userRecord) });
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     return next(error);
   } finally {
     client.release();
+  }
+
+  if (!verifiedUser) {
+    return response.status(400).json({ error: 'Invalid or expired verification link or password.' });
+  }
+  try {
+    // The connection above is released first, so creating the session never waits on the pool.
+    await createSession(verifiedUser.id, response);
+    return response.json({ user: publicUser(verifiedUser) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Password reset: a link emailed to the account's address lets the owner choose a new password.
+// The reply is the same whether or not an account exists, so it can't be used to look up emails.
+app.post('/api/auth/password-reset/request', passwordResetIpRateLimit, passwordResetEmailRateLimit, async (request, response, next) => {
+  if (!pool || !emailEnabled || !siteOrigin) {
+    return response.status(503).json({ error: 'Password reset is temporarily unavailable. Email hello@onhacks.ca for help.' });
+  }
+  const email = clean(request.body?.email).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+    return response.status(400).json({ error: 'Enter a valid email address.' });
+  }
+  const sent = { ok: true };
+  try {
+    if (await siteEmailCapReached()) return response.status(503).json({ error: emailCapMessage });
+    const result = await pool.query('SELECT id, full_name, email FROM users WHERE email = $1', [email]);
+    const user = result.rows[0];
+    if (!user) return response.status(202).json(sent);
+    const recent = await pool.query(
+      `SELECT 1 FROM password_reset_tokens
+       WHERE user_id = $1 AND created_at > NOW() - INTERVAL '5 minutes' AND expires_at > NOW()`,
+      [user.id],
+    );
+    if (recent.rowCount) return response.status(202).json(sent);
+
+    const token = randomBytes(32).toString('hex');
+    const tokenHash = hashSessionToken(token);
+    await pool.query(
+      `INSERT INTO password_reset_tokens (token_hash, user_id, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '1 hour')
+       ON CONFLICT (user_id) DO UPDATE
+         SET token_hash = EXCLUDED.token_hash, expires_at = EXCLUDED.expires_at, created_at = NOW()`,
+      [tokenHash, user.id],
+    );
+    const resetUrl = new URL(APP_PATHS.resetPassword, siteOrigin);
+    resetUrl.hash = new URLSearchParams({ token }).toString();
+    const safeName = user.full_name.replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[character]);
+    try {
+      await sendSiteEmail('password-reset', {
+        to: user.email,
+        toName: user.full_name,
+        tags: ['password-reset'],
+        subject: 'Reset your ONHacks password',
+        text: [
+          `Hi ${user.full_name},`,
+          '',
+          'We got a request to reset your ONHacks password. Open the link below to choose a new one:',
+          resetUrl.toString(),
+          '',
+          "This link expires in 1 hour. If you didn't ask for this, you can ignore this email and your password won't change.",
+          '',
+          'The ONHacks team',
+        ].join('\n'),
+        html: `<p>Hi ${safeName},</p><p>We got a request to reset your ONHacks password. Open the link below to choose a new one:</p><p><a href="${resetUrl}">Reset password</a></p><p>This link expires in 1 hour. If you didn't ask for this, you can ignore this email and your password won't change.</p><p>The ONHacks team</p>`,
+      });
+    } catch (error) {
+      if (!error.uncertain) await pool.query('DELETE FROM password_reset_tokens WHERE token_hash = $1', [tokenHash]);
+      if (error.code === 'email_cap_reached') return response.status(503).json({ error: emailCapMessage });
+      console.error('Password reset email failed:', String(error?.message || error).slice(0, 200));
+      if (!error.uncertain) {
+        return response.status(503).json({ error: "We couldn't send the reset email. Please try again in a few minutes." });
+      }
+    }
+    return response.status(202).json(sent);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/auth/password-reset', passwordResetConfirmRateLimit, async (request, response, next) => {
+  if (!pool) {
+    return response.status(503).json({ error: 'Password reset is temporarily unavailable. Please try again later.' });
+  }
+  const token = clean(request.body?.token);
+  const password = typeof request.body?.password === 'string' ? request.body.password : '';
+  const invalidLink = 'This reset link is invalid or has expired. Request a new one.';
+  if (!/^[a-f0-9]{64}$/.test(token)) return response.status(400).json({ error: invalidLink });
+  if (password.length < 8 || password.length > 128) {
+    return response.status(400).json({ error: 'Use a password between 8 and 128 characters.' });
+  }
+
+  let resetUser = null;
+  try {
+    const passwordHash = await hashPassword(password);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await client.query(
+        `SELECT u.id, u.full_name, u.email, u.created_at
+         FROM password_reset_tokens t
+         INNER JOIN users u ON u.id = t.user_id
+         WHERE t.token_hash = $1 AND t.expires_at > NOW()
+         FOR UPDATE OF t, u`,
+        [hashSessionToken(token)],
+      );
+      const userRecord = result.rows[0];
+      if (userRecord) {
+        // Opening the emailed link proves the address, so an unverified account is verified too.
+        await client.query(
+          'UPDATE users SET password_hash = $2, email_verified_at = COALESCE(email_verified_at, NOW()) WHERE id = $1',
+          [userRecord.id, passwordHash],
+        );
+        await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userRecord.id]);
+        await client.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userRecord.id]);
+        await client.query('DELETE FROM sessions WHERE user_id = $1', [userRecord.id]);
+        await client.query('COMMIT');
+        resetUser = userRecord;
+      } else {
+        await client.query('ROLLBACK');
+      }
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+    if (!resetUser) return response.status(400).json({ error: invalidLink });
+    await createSession(resetUser.id, response);
+    return response.json({ user: publicUser(resetUser) });
+  } catch (error) {
+    return next(error);
   }
 });
 
@@ -1017,8 +1287,11 @@ app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applica
     client?.release();
   }
 
-  await sendApplicationReceipt(application);
-  return response.status(201).json({ application: savedApplication });
+  response.status(201).json({ application: savedApplication });
+  // The application is saved; the receipt goes out afterwards so a slow email doesn't hold the
+  // applicant on a spinner (sendApplicationReceipt never throws).
+  sendApplicationReceipt(application);
+  return undefined;
 });
 
 const { requireOrganizer } = mountEventOperations(app, {
@@ -1028,7 +1301,15 @@ mountJudging(app, {
   pool, parseCookies, appendCookie, verifyPassword, hashSessionToken, requireOrganizer,
 });
 
-app.use(express.static(distDirectory));
+app.use(express.static(distDirectory, {
+  setHeaders(response, filePath) {
+    // Vite names built JS/CSS by content hash, so those files never change and can be cached
+    // for a year; images and other unhashed files keep the default revalidation.
+    if (/[\\/]assets[\\/][^\\/]+-[\w-]{8}\.(?:js|css)$/.test(filePath)) {
+      response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  },
+}));
 
 // Serve the SPA for real routes and the 404 screen for unknown page URLs.
 app.use((request, response, next) => {
@@ -1048,6 +1329,7 @@ app.use((request, response, next) => {
   }
 
   response.status(clientRoutes.has(route) ? 200 : 404);
+  if (privateRoutes.has(route)) response.setHeader('X-Robots-Tag', 'noindex, nofollow');
   return response.sendFile(path.join(distDirectory, 'index.html'), (error) => {
     if (error) next(error);
   });
@@ -1100,6 +1382,9 @@ async function start() {
     await pool.query(eventApplicationTable);
     await pool.query(eventApplicationConsentMigration);
     await pool.query(eventApplicationHeardAboutMigration);
+    await pool.query(accountEmailSchema);
+    await pool.query("DELETE FROM email_sends WHERE sent_at < NOW() - INTERVAL '2 days'");
+    await pool.query('DELETE FROM password_reset_tokens WHERE expires_at <= NOW()');
     await pool.query(eventOperationsSchema);
     await pool.query(judgingSchema);
     await pool.query('DELETE FROM judge_sessions WHERE expires_at <= NOW()');

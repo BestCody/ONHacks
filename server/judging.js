@@ -35,9 +35,12 @@ export const judgingSchema = `
   );
 `;
 
+// Each judge's ratings are kept under their name, so a first and last name is required to stop
+// two judges who share a first name from overwriting each other's ratings.
 function judgeName(value) {
   const name = typeof value === 'string' ? value.normalize('NFC').replace(/\s+/g, ' ').trim() : '';
-  return name.length >= 2 && name.length <= 60 && !/[\u0000-\u001f]/.test(name) ? name : null;
+  const valid = name.length >= 3 && name.length <= 60 && !/\p{Cc}/u.test(name) && name.split(' ').length >= 2;
+  return valid ? name : null;
 }
 
 const judgeKey = (name) => name.toLocaleLowerCase('en-CA');
@@ -69,14 +72,26 @@ export function mountJudging(app, {
     const hash = cachedHash.value;
     return hash ? { hash, fingerprint: createHash('sha256').update(hash).digest('hex') } : null;
   }
-  const judgeLoginLimit = rateLimit({
+  // Everyone at the venue shares one Wi-Fi address, so failed attempts are limited per judge name
+  // on that network (so one person can't lock every judge out), with a looser cap per network.
+  const judgeLoginLimitMessage = (_request, response) => response.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' });
+  const judgeNetworkLimit = rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 30,
+    limit: 200,
     keyGenerator: clientIpKey,
     skipSuccessfulRequests: true,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
-    handler: (_request, response) => response.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' }),
+    handler: judgeLoginLimitMessage,
+  });
+  const judgeNameLimit = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    keyGenerator: (request) => `${clientIpKey(request)}|${judgeKey(String(request.body?.name || '').trim())}`,
+    skipSuccessfulRequests: true,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    handler: judgeLoginLimitMessage,
   });
 
   async function requireJudge(request, response, next) {
@@ -100,12 +115,12 @@ export function mountJudging(app, {
     }
   }
 
-  app.post('/api/judges/signin', judgeLoginLimit, async (request, response, next) => {
+  app.post('/api/judges/signin', judgeNetworkLimit, judgeNameLimit, async (request, response, next) => {
     try {
       const stored = pool && await judgePassword();
       if (!stored) return response.status(503).json({ error: 'Judging is not set up yet.' });
       const name = judgeName(request.body?.name);
-      if (!name) return response.status(400).json({ error: 'Enter your full name (2 to 60 characters).' });
+      if (!name) return response.status(400).json({ error: 'Enter your first and last name (up to 60 characters).' });
       const password = request.body?.password;
       if (typeof password !== 'string' || password.length < 1 || password.length > 128
         || !(await verifyPassword(password, stored.hash))) {

@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /organizer
+Disallow: /judges
+Disallow: /dashboard
+Disallow: /participant
+Disallow: /apply
+Disallow: /verify-email
+Disallow: /reset-password
+Disallow: /api/

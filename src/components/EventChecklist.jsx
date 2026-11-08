@@ -170,7 +170,7 @@ export default function EventChecklist({ onChange }) {
     <div className="rounded-xl border border-black/10 bg-[#f8fafc] p-5 mb-6">
       <h2 className="font-bungee text-lg text-[#0A1A2A]">Before the event</h2>
       {!rsvpAt && !rsvpClosed && (
-        <p className="text-black/60 mt-1">Finish both steps by {EVENT_DETAILS.rsvpDeadlineLabel} to keep your spot.</p>
+        <p className="text-black/60 mt-1">Finish both steps by {EVENT_DETAILS.rsvpDeadlineLabel} at 11:59 PM to keep your spot.</p>
       )}
 
       <section className="mt-5" aria-labelledby="waiver-step">
@@ -195,6 +195,10 @@ export default function EventChecklist({ onChange }) {
               <li>Sign it. If you&apos;re under 18, a parent or guardian must sign it too.</li>
               <li>Upload the signed waiver (PDF, JPG, or PNG).</li>
             </ol>
+            <p className="mt-2 text-sm text-black/50">
+              Only the ONHacks organizing team can view your waiver, and it&apos;s deleted automatically {EVENT_DETAILS.waiverRetentionDays} days after upload. See our{' '}
+              <a href="/privacy" className="underline underline-offset-2">Privacy Notice</a>.
+            </p>
 
             {files.length > 0 && (
               <ul className="mt-4 space-y-2">
@@ -269,7 +273,7 @@ export default function EventChecklist({ onChange }) {
           <>
             <p className="text-black/60 mt-2">
               {submitted
-                ? `Let us know you're coming by ${EVENT_DETAILS.rsvpDeadlineLabel}.`
+                ? `Let us know you're coming by ${EVENT_DETAILS.rsvpDeadlineLabel} at 11:59 PM.`
                 : 'Submit your signed waiver first to unlock this step.'}
             </p>
             <Button

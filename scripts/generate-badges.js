@@ -17,7 +17,15 @@ if (!process.env.DATABASE_URL) {
   throw new Error('Set DATABASE_URL in your local .env before generating badges.');
 }
 
-const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+const client = new pg.Client({
+  connectionString: process.env.DATABASE_URL,
+  // This run locks the unprinted hackers' rows. If the laptop drops off the venue Wi-Fi mid-run,
+  // the database releases them within five minutes (long enough for a big PDF to finish)
+  // instead of blocking meal scans for hours.
+  idle_in_transaction_session_timeout: 300_000,
+  lock_timeout: 10_000,
+});
+client.on('error', (error) => console.error(`Database connection error: ${error.message}`));
 let connected = false;
 let transactionOpen = false;
 let commitStarted = false;

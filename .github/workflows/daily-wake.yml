@@ -1,0 +1,19 @@
+name: Daily wake-up
+
+# Render's free plan puts the site to sleep when nobody visits. Waking it once a day runs the
+# startup cleanup, which deletes uploaded waivers 45 days after upload as the privacy notice
+# promises, even in the quiet weeks after the event.
+on:
+  schedule:
+    - cron: '17 14 * * *' # 9:17 AM Toronto time
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wake onhacks.ca
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 20 --max-time 90 https://onhacks.ca/api/health

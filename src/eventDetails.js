@@ -11,8 +11,9 @@ export const EVENT_DETAILS = {
   badgeHeightInches: 6,
   badgeGutterInches: 0.125,
   mealLimitPerParticipant: 2,
-  // A second scan of the same badge this soon is a repeat, not the next meal (lunch and dinner are hours apart).
-  mealScanCooldownMinutes: 30,
+  // A second scan of the same badge this soon is a repeat, not the next meal. Lunch (11:30-12:30)
+  // and dinner (5:00-5:30) are at least 4.5 hours apart, so one lunch can't be counted twice.
+  mealScanCooldownMinutes: 180,
   // New applications are refused after this moment (Toronto time); sign-up stays open.
   applicationsCloseAt: '2026-11-08T23:59:59-05:00',
   applicationsCloseLabel: 'November 8',

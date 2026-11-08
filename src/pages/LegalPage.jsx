@@ -14,7 +14,8 @@ const DOCUMENTS = {
           'We collect the information you provide in your account and application, including your name, email address, team status, GitHub profile, high-school confirmation, supplies confirmation, and how you heard about ONHacks.',
           'If you are accepted, we also collect the signed participant waiver you upload. It includes your date of birth, your emergency contact, your parent or guardian’s name and signature, and any medical information you choose to share.',
           'If you RSVP, we record when you confirmed your spot and create a meal QR code that appears on your participant pass and printed name badge. Organizers scan it at lunch and dinner to record your meals.',
-          'After projects are submitted on Devpost, we use the team members’ email addresses in Devpost’s project export to match your team to your application and schedule your judging room and pitch time.',
+          'After projects are submitted on Devpost, we import Devpost’s project export: each project’s title, description, links, technologies, prize categories, and team members’ names and email addresses. We use the email addresses to match your team to your application and schedule your judging room and pitch time.',
+          'Event judges sign in to a separate judging page where they see each submitted project’s details and team members’ names, but not your email address, application, or waiver. Each judge’s 1 to 5 rating and comment on your project is stored with the judge’s name and is visible only to the ONHacks organizing team, which uses them to choose winners.',
           'We also keep technical information needed to secure the service, such as session and rate-limiting information.',
           'We use cookie-free Cloudflare Web Analytics to measure visits, page views, and website performance. It does not track individual visitors across websites.',
         ],
@@ -29,7 +30,7 @@ const DOCUMENTS = {
       {
         heading: 'Access and service providers',
         paragraphs: [
-          'Apart from the sponsor sharing described below, access is limited to the ONHacks organizing team and service providers that help us host, secure, and operate the website and database. Those providers may process information outside Canada.',
+          'Apart from the judging and sponsor sharing described in this notice, your information is available only to the ONHacks organizing team and to the service providers we use to run the event: Render (website and database hosting, including uploaded waivers, in the United States), Cloudflare (website security and cookie-free analytics), Brevo (account and event emails, based in France), and Google (only if you choose Continue with Google). Because these providers are outside Canada, your information may be accessible to courts and authorities in those countries.',
           `Uploaded waivers can only be viewed by the ONHacks organizing team. They are deleted from our website automatically ${EVENT_DETAILS.waiverRetentionDays} days after upload, and organizers delete any copies they download to check them by then.`,
           'We keep information only for as long as it is reasonably needed for application review, event operations, safety, legal, and security purposes, after which it is deleted or anonymized where practical.',
         ],
@@ -71,7 +72,7 @@ const DOCUMENTS = {
       {
         heading: 'Waiver and RSVP',
         paragraphs: [
-          `If you are accepted, you must upload a signed participant waiver (also signed by a parent or guardian if you are under 18) and RSVP on your dashboard by ${EVENT_DETAILS.rsvpDeadlineLabel}. Only participants who RSVP receive an event pass and name badge.`,
+          `If you are accepted, you must upload a signed participant waiver (also signed by a parent or guardian if you are under 18) and RSVP on your dashboard by ${EVENT_DETAILS.rsvpDeadlineLabel} at 11:59 PM (Toronto time). Only participants who RSVP receive an event pass and name badge.`,
         ],
       },
       {
@@ -83,7 +84,7 @@ const DOCUMENTS = {
       {
         heading: 'Projects and submissions',
         paragraphs: [
-          'You are responsible for your project and must have the right to use any code, media, data, or other materials included in it. You retain ownership of work you create, subject to the licenses of any third-party materials you use.',
+          'You are responsible for your project and must have the right to use any code, media, data, or other materials included in it. You retain ownership of work you create, subject to the licenses of any third-party materials you use. Submitted projects are reviewed and rated by event judges.',
         ],
       },
       {

@@ -4,7 +4,7 @@ import { ChevronDown, Instagram } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LoadingScreen from '@/components/LoadingScreen';
 import SubmarineOrganizers from '@/components/SubmarineOrganizers';
-import { EVENT_DETAILS } from '@/eventDetails';
+import { EVENT_DETAILS, applicationsClosed } from '@/eventDetails';
 
 const VIDEO_URL = "/assets/hero.mp4";
 const MASCOT_ART = "/assets/download.png";
@@ -304,7 +304,7 @@ const FAQ_ITEMS = [
   {
     question: 'How will we communicate during the event?',
     answer:
-      'Organizers will share the event communication channel before the hackathon. Use it for announcements, help requests, mentor updates, and questions, while your team can use its own group chat for day-to-day coordination.',
+      'Announcements are made in person at the venue, and we email important updates to the address on your application. During the event, find an organizer or mentor for help. Before the event, email hello@onhacks.ca or message us on Instagram at @onhacks_. Your team can use its own group chat for day-to-day coordination.',
   },
   {
     question: 'Do I need to attend in person?',
@@ -496,7 +496,7 @@ export default function Home() {
               type="button"
               onClick={() => navigate('/signin')}
               className="site-nav-register">
-              Register
+              {applicationsClosed() ? 'Sign in' : 'Register'}
             </button>
             <a
               href="https://www.instagram.com/onhacks_/"
@@ -547,7 +547,7 @@ export default function Home() {
           transition={{ delay: 0.7, type: "spring" }}
           className="absolute bottom-[10vw] right-[10vw] group">
           <span className="block font-bungee text-[#F4F4F9] glass-sheet border border-[#FF2E2E]/60 rounded-full px-[clamp(1.5rem,3vw,2.5rem)] py-[clamp(0.7rem,1.2vw,1.25rem)] text-[clamp(1.25rem,2.2vw,2.25rem)] hover:bg-[#FF2E2E] hover:text-white hover:scale-110 transition-all duration-300 shadow-[0_0_40px_rgba(255,46,46,0.4)]">
-            REGISTER →
+            {applicationsClosed() ? 'SIGN IN →' : 'REGISTER →'}
           </span>
         </motion.button>
       </section>

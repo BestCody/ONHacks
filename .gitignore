@@ -8,6 +8,9 @@ prints/*
 .env.*
 !.env.example
 projects-*-with-pii-*.csv
+# Exports and waivers hold personal information; keep them out of this public repository.
+*.csv
+waiver-*
 AGENTS.md
 CLAUDE.md
 

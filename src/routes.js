@@ -13,4 +13,5 @@ export const APP_PATHS = {
   participant: '/participant',
   organizer: '/organizer',
   judges: '/judges',
+  resetPassword: '/reset-password',
 };
