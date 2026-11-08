@@ -12,4 +12,5 @@ export const APP_PATHS = {
   dashboard: '/dashboard',
   participant: '/participant',
   organizer: '/organizer',
+  judges: '/judges',
 };

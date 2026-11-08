@@ -16,6 +16,7 @@ import { APPLICATIONS_CLOSED_MESSAGE, applicationsClosed } from '../src/eventDet
 import { APP_PATHS } from '../src/routes.js';
 import { clientIpKey } from './clientIp.js';
 import { eventOperationsSchema, mountEventOperations, purgeExpiredWaivers } from './eventOperations.js';
+import { judgingSchema, mountJudging } from './judging.js';
 
 const { Pool } = pg;
 const scrypt = (password, salt, keyLength, options) => new Promise((resolve, reject) => {
@@ -1041,8 +1042,11 @@ app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applica
   return response.status(201).json({ application: savedApplication });
 });
 
-mountEventOperations(app, {
+const { requireOrganizer } = mountEventOperations(app, {
   pool, requireAuth, parseCookies, appendCookie, verifyPassword, hashSessionToken,
+});
+mountJudging(app, {
+  pool, parseCookies, appendCookie, verifyPassword, hashSessionToken, requireOrganizer,
 });
 
 app.use(express.static(distDirectory));
@@ -1118,6 +1122,8 @@ async function start() {
     await pool.query(eventApplicationConsentMigration);
     await pool.query(eventApplicationHeardAboutMigration);
     await pool.query(eventOperationsSchema);
+    await pool.query(judgingSchema);
+    await pool.query('DELETE FROM judge_sessions WHERE expires_at <= NOW()');
     await pool.query('DELETE FROM sessions WHERE expires_at <= NOW()');
     await pool.query('DELETE FROM email_verification_tokens WHERE expires_at <= NOW()');
     await pool.query('DELETE FROM organizer_sessions WHERE expires_at <= NOW()');

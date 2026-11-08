@@ -41,6 +41,7 @@ export const eventOperationsSchema = `
     imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CHECK ((room_number IS NULL) = (slot_index IS NULL))
   );
+  ALTER TABLE devpost_projects ADD COLUMN IF NOT EXISTS details JSONB NOT NULL DEFAULT '{}'::jsonb;
   CREATE TABLE IF NOT EXISTS devpost_project_members (
     project_id BIGINT NOT NULL REFERENCES devpost_projects(id) ON DELETE CASCADE,
     application_id BIGINT NOT NULL REFERENCES event_applications(id) ON DELETE CASCADE,
@@ -127,6 +128,25 @@ function startMinutes(start) {
   const [hour, minute] = start.split(':').map(Number);
   return hour * 60 + minute;
 }
+
+export function pitchTimeFor(start, slotIndex) {
+  if (slotIndex === null || slotIndex === undefined || !start) return null;
+  return formatTime(startMinutes(start) + Number(slotIndex) * slotMinutes);
+}
+
+// Only plain web links from the CSV are kept, so nothing like a javascript: URL reaches a page.
+function webLink(value) {
+  try {
+    const url = new URL(String(value).trim());
+    return ['https:', 'http:'].includes(url.protocol) && url.href.length <= 500 ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+const cleanText = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+const listFrom = (value, maxItems, maxLength) => [...new Set(String(value ?? '').split(',')
+  .map((item) => cleanText(item, maxLength)).filter(Boolean))].slice(0, maxItems);
 
 function projectRowsToPublic(rows, start) {
   const eligibleIds = new Set(eligibleProjects(rows).map((row) => String(row.id)));
@@ -236,6 +256,17 @@ function parseDevpostCsv(csv) {
   if (urlColumn < 0 || titleColumn < 0 || statusColumn < 0 || !emailColumns.length) {
     throw new Error('Use a Devpost Projects data CSV with project URL, title, status, and team-member email columns.');
   }
+  // Optional details shown to judges; any of these columns may be missing.
+  const aboutColumn = column((header) => header === 'abouttheproject');
+  const builtWithColumn = column((header) => header === 'builtwith');
+  const videoColumn = column((header) => header === 'videodemolink');
+  const linksColumn = column((header) => header === 'tryitoutlinks');
+  const prizesColumn = column((header) => header === 'optinprizes');
+  const submitterNameColumns = [column((header) => header === 'submitterfirstname'), column((header) => header === 'submitterlastname')];
+  const memberNameColumns = headers.flatMap((header, index) => {
+    const match = /^teammember(\d+)firstname$/.exec(header);
+    return match ? [[index, headers.indexOf(`teammember${match[1]}lastname`)]] : [];
+  });
 
   const projects = new Map();
   let draftsSkipped = 0;
@@ -267,7 +298,23 @@ function parseDevpostCsv(csv) {
     }
     const emails = [...emailColumns.map(cell), ...row.slice(overflowStart).map(String)]
       .flatMap((value) => value.toLowerCase().match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/g) || []);
-    const existing = projects.get(projectUrl) || { url: projectUrl, title, emails: new Set() };
+    const fullName = ([first, last]) => cleanText(`${cell(first)} ${cell(last)}`, 80);
+    // Past the "..." column Devpost repeats first name, last name, email for each extra member.
+    const overflowNames = row.slice(overflowStart).map(String).filter((value) => !value.includes('@'));
+    const extraNames = [];
+    for (let i = 0; i + 1 < overflowNames.length; i += 2) {
+      extraNames.push(cleanText(`${overflowNames[i]} ${overflowNames[i + 1]}`, 80));
+    }
+    const details = {
+      about: cleanText(cell(aboutColumn), 4000),
+      builtWith: listFrom(cell(builtWithColumn), 20, 50),
+      video: webLink(cell(videoColumn)),
+      links: [...new Set(cell(linksColumn).split(/[\s,]+/).map(webLink).filter(Boolean))].slice(0, 5),
+      prizes: listFrom(cell(prizesColumn), 10, 120),
+      members: [...new Set([fullName(submitterNameColumns), ...memberNameColumns.map(fullName), ...extraNames]
+        .filter(Boolean))].slice(0, 8),
+    };
+    const existing = projects.get(projectUrl) || { url: projectUrl, title, details, emails: new Set() };
     for (const email of emails) existing.emails.add(email);
     projects.set(projectUrl, existing);
   }
@@ -830,13 +877,13 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
           if (!project.emails.size) unmatched.push('(no team-member emails)');
           unmatchedCount += unmatched.length;
           const saved = await client.query(
-            `INSERT INTO devpost_projects (project_url, title, unmatched_emails)
-             VALUES ($1, $2, $3::jsonb)
+            `INSERT INTO devpost_projects (project_url, title, unmatched_emails, details)
+             VALUES ($1, $2, $3::jsonb, $4::jsonb)
              ON CONFLICT (project_url) DO UPDATE
                SET title = EXCLUDED.title, unmatched_emails = EXCLUDED.unmatched_emails,
-                   imported_at = NOW()
+                   details = EXCLUDED.details, imported_at = NOW()
              RETURNING id`,
-            [project.url, project.title, JSON.stringify(unmatched)],
+            [project.url, project.title, JSON.stringify(unmatched), JSON.stringify(project.details)],
           );
           const id = saved.rows[0].id;
           await client.query('DELETE FROM devpost_project_members WHERE project_id = $1', [id]);
@@ -942,4 +989,5 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
     }
   });
 
+  return { requireOrganizer };
 }

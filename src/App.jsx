@@ -13,6 +13,7 @@ import { APP_PATHS } from '@/routes';
 
 const Participant = lazy(() => import('@/pages/Participant'));
 const Organizer = lazy(() => import('@/pages/Organizer'));
+const Judges = lazy(() => import('@/pages/Judges'));
 
 const NotFound = () => (
   <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
@@ -41,6 +42,10 @@ function App() {
           <Route path={APP_PATHS.verifyEmail} element={<VerifyEmail />} />
           <Route path={APP_PATHS.participant} element={<ProtectedRoute><Participant /></ProtectedRoute>} />
           <Route path={APP_PATHS.organizer} element={<Organizer />} />
+          <Route
+            path={APP_PATHS.judges}
+            element={<Suspense fallback={<main className="min-h-screen bg-[#f5f5f7]" />}><Judges /></Suspense>}
+          />
           <Route path={APP_PATHS.login} element={<Navigate to={APP_PATHS.signIn} replace />} />
           <Route path={APP_PATHS.register} element={<Navigate to={APP_PATHS.signUp} replace />} />
           <Route
