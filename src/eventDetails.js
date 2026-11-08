@@ -1,6 +1,7 @@
 export const EVENT_DETAILS = {
   dateLabel: 'NOVEMBER 15',
   venue: "Polish Combatants' Hall",
+  venueMapUrl: 'https://www.google.com/maps/search/?api=1&query=Polish%20Combatants%27%20Hall%2C%20206%20Beverley%20St%2C%20Toronto%2C%20ON%20M5T%201Z3',
   // Judging runs 17:30-20:00 in Room 1 and Room 2 (see the hacker package schedule).
   defaultJudgingStart: '17:30',
   judgingWindowMinutes: 150,

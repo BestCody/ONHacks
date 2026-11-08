@@ -536,7 +536,15 @@ export default function Home() {
             transition={{ delay: 0.4, duration: 0.6 }}
             className="font-tech mt-4 tracking-[0.2em] font-bold text-xl text-[hsl(var(--foreground))]"
             style={{ fontSize: "clamp(1rem, 2.5vw, 1.5rem)", textShadow: "0 2px 12px rgba(0,0,0,0.8)" }}>
-            {EVENT_DETAILS.dateLabel}, <span className="font-bold">{EVENT_DETAILS.venue}</span>
+            {EVENT_DETAILS.dateLabel},{' '}
+            <a
+              href={EVENT_DETAILS.venueMapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${EVENT_DETAILS.venue} on Google Maps (opens in a new tab)`}
+              className="font-bold underline-offset-[0.2em] decoration-2 hover:underline focus-visible:underline">
+              {EVENT_DETAILS.venue}
+            </a>
           </motion.p>
         </div>
 
