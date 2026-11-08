@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Camera, Check, ClipboardCheck, FileUp, LockKeyhole, LogOut, Trophy, Waves, X } from 'lucide-react';
 import { EVENT_DETAILS } from '@/eventDetails';
+import { useScreenScale } from '@/hooks/useScreenScale';
 
 async function requestJson(url, options = {}) {
   let response;
@@ -22,7 +23,7 @@ async function requestJson(url, options = {}) {
   return data;
 }
 
-const actionButton = 'rounded-xl bg-[#ff473d] px-5 py-3 font-bungee text-sm text-white transition hover:bg-[#e72e2e] disabled:cursor-not-allowed disabled:opacity-[0.45]';
+const actionButton = 'rounded-xl bg-[#ff473d] px-5 py-3 font-bungee text-base text-white transition hover:bg-[#e72e2e] disabled:cursor-not-allowed disabled:opacity-[0.45]';
 
 function formatWhen(value) {
   return new Date(value).toLocaleString('en-CA', {
@@ -31,6 +32,7 @@ function formatWhen(value) {
 }
 
 export default function Organizer() {
+  useScreenScale();
   const [session, setSession] = useState('checking');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -325,37 +327,37 @@ export default function Organizer() {
     <main className="min-h-screen bg-[#0d2243] px-4 py-8 text-white sm:py-12">
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <Link to="/" className="font-tech text-sm text-cyan-100 hover:text-white">← ONHacks home</Link>
-          {session === 'signed-in' && <button type="button" onClick={signOut} className="flex items-center gap-2 text-sm text-cyan-100 hover:text-white"><LogOut size={16} /> Sign out</button>}
+          <Link to="/" className="font-tech text-base text-cyan-100 hover:text-white">← ONHacks home</Link>
+          {session === 'signed-in' && <button type="button" onClick={signOut} className="flex items-center gap-2 text-base text-cyan-100 hover:text-white"><LogOut size={16} /> Sign out</button>}
         </div>
-        <p className="font-tech text-xs uppercase tracking-[0.25em] text-cyan-200">ONHacks // Organizer</p>
+        <p className="font-tech text-sm uppercase tracking-[0.25em] text-cyan-200">ONHacks // Organizer</p>
         <h1 className="mt-3 font-bubbly text-4xl sm:text-5xl">Event operations</h1>
 
         {session === 'signed-out' ? (
           <form onSubmit={signIn} className="mt-8 max-w-md rounded-3xl bg-white p-6 text-[#0d2243] sm:p-8">
             <LockKeyhole className="text-[#e53232]" size={28} />
             <h2 className="mt-3 font-bungee text-xl">Organizer sign in</h2>
-            <label htmlFor="organizer-password" className="mt-5 block text-sm font-semibold">Password</label>
+            <label htmlFor="organizer-password" className="mt-5 block text-base font-semibold">Password</label>
             <input id="organizer-password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" />
-            {loginError && <p role="alert" className="mt-3 text-sm text-red-700">{loginError}</p>}
+            {loginError && <p role="alert" className="mt-3 text-base text-red-700">{loginError}</p>}
             <button type="submit" disabled={busy === 'login'} className={`${actionButton} mt-5 w-full`}>Enter organizer page</button>
           </form>
         ) : (
           <div className="mt-8 space-y-6">
             {pageError && <p role="alert" className="rounded-xl bg-red-100 p-4 text-red-900">{pageError}</p>}
-            {overview && <p className="text-sm text-cyan-100">{overview.acceptedCount} accepted participants · {overview.waiverCount} waivers submitted · {overview.rsvpCount} RSVPs · {overview.projects.length} imported projects · {overview.unprintedCount} badges not yet generated</p>}
+            {overview && <p className="text-base text-cyan-100">{overview.acceptedCount} accepted participants · {overview.waiverCount} waivers submitted · {overview.rsvpCount} RSVPs · {overview.projects.length} imported projects · {overview.unprintedCount} badges not yet generated</p>}
 
             <section className="rounded-3xl border border-white/15 bg-[#14365d] p-6 sm:p-8">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3"><ClipboardCheck className="text-cyan-200" /><h2 className="font-bungee text-xl">Waivers &amp; RSVPs</h2></div>
-                <button type="button" onClick={() => { loadParticipants(); loadOverview().catch(() => {}); }} className="text-sm text-cyan-100 underline hover:text-white">Refresh</button>
+                <button type="button" onClick={() => { loadParticipants(); loadOverview().catch(() => {}); }} className="text-base text-cyan-100 underline hover:text-white">Refresh</button>
               </div>
-              <p className="mt-2 text-sm text-cyan-100">Accepted hackers upload a signed waiver, which unlocks their RSVP, by {EVENT_DETAILS.rsvpDeadlineLabel}. Download each waiver to check every page is signed, then delete your downloaded copy. Resetting deletes the files and the RSVP so the hacker can upload again. Files are deleted automatically {EVENT_DETAILS.waiverRetentionDays} days after upload.</p>
+              <p className="mt-2 text-base text-cyan-100">Accepted hackers upload a signed waiver, which unlocks their RSVP, by {EVENT_DETAILS.rsvpDeadlineLabel}. Download each waiver to check every page is signed, then delete your downloaded copy. Resetting deletes the files and the RSVP so the hacker can upload again. Files are deleted automatically {EVENT_DETAILS.waiverRetentionDays} days after upload.</p>
               {participantsError && <p role="alert" className="mt-4 rounded-xl bg-red-100 p-4 text-red-900">{participantsError}</p>}
               {participants && !participants.length && <p className="mt-4 text-cyan-100">No accepted participants yet.</p>}
               {participants?.length > 0 && (
                 <div className="mt-5 max-h-96 overflow-auto rounded-xl border border-white/20">
-                  <table className="w-full min-w-[40rem] text-left text-sm">
+                  <table className="w-full min-w-[40rem] text-left text-base">
                     <thead className="bg-white/10"><tr><th className="p-3">Hacker</th><th className="p-3">Waiver</th><th className="p-3">RSVP</th><th className="p-3"><span className="sr-only">Actions</span></th></tr></thead>
                     <tbody>{participants.map((participant) => (
                       <tr key={participant.id} className="border-t border-white/10 align-top">
@@ -371,10 +373,10 @@ export default function Organizer() {
                         <td className="p-3">{participant.rsvpAt ? `Confirmed ${formatWhen(participant.rsvpAt)}` : '—'}</td>
                         <td className="p-3 text-right">
                           {participant.waiverSubmittedAt && !participant.rsvpAt && (
-                            <button type="button" onClick={() => confirmRsvp(participant)} disabled={busy === `rsvp-${participant.id}`} className="mb-2 mr-2 rounded-lg border border-white/30 px-3 py-1.5 text-xs hover:bg-white/10 disabled:opacity-50">Confirm RSVP</button>
+                            <button type="button" onClick={() => confirmRsvp(participant)} disabled={busy === `rsvp-${participant.id}`} className="mb-2 mr-2 rounded-lg border border-white/30 px-3 py-1.5 text-sm hover:bg-white/10 disabled:opacity-50">Confirm RSVP</button>
                           )}
                           {(participant.waiverSubmittedAt || participant.files.length > 0) && (
-                            <button type="button" onClick={() => resetWaiver(participant)} disabled={busy === `reset-${participant.id}`} className="rounded-lg border border-white/30 px-3 py-1.5 text-xs hover:bg-white/10 disabled:opacity-50">Reset waiver</button>
+                            <button type="button" onClick={() => resetWaiver(participant)} disabled={busy === `reset-${participant.id}`} className="rounded-lg border border-white/30 px-3 py-1.5 text-sm hover:bg-white/10 disabled:opacity-50">Reset waiver</button>
                           )}
                         </td>
                       </tr>
@@ -386,7 +388,7 @@ export default function Organizer() {
 
             <section className="rounded-3xl border border-white/15 bg-[#14365d] p-6 sm:p-8">
               <div className="flex items-center gap-3"><Camera className="text-cyan-200" /><h2 className="font-bungee text-xl">Scan meal QR</h2></div>
-              <p className="mt-2 text-sm text-cyan-100">Each participant can receive up to {EVENT_DETAILS.mealLimitPerParticipant} meals. Scanning pauses until you choose to scan again.</p>
+              <p className="mt-2 text-base text-cyan-100">Each participant can receive up to {EVENT_DETAILS.mealLimitPerParticipant} meals. Scanning pauses until you choose to scan again.</p>
               {scanning && <video ref={videoRef} muted playsInline className="mt-5 aspect-video w-full max-w-lg rounded-xl bg-black object-cover" />}
               <div className="mt-5">
                 {scanning
@@ -421,13 +423,13 @@ export default function Organizer() {
             <section className="rounded-3xl border border-white/15 bg-[#14365d] p-6 sm:p-8">
               <div className="flex items-center gap-3"><FileUp className="text-cyan-200" /><h2 className="font-bungee text-xl">Import Devpost CSV</h2></div>
               {overview?.settings ? (
-                <p className="mt-2 text-sm text-cyan-100">The project roster is locked with judging assignments. CSV imports are closed.</p>
+                <p className="mt-2 text-base text-cyan-100">The project roster is locked with judging assignments. CSV imports are closed.</p>
               ) : (
                 <>
-                  <p className="mt-2 text-sm text-cyan-100">Export the full Devpost Projects data report with personally identifiable information included. Drafts are skipped. Each import replaces the previous project roster, so correct any teammate email to their accepted application email in the CSV before re-importing.</p>
+                  <p className="mt-2 text-base text-cyan-100">Export the full Devpost Projects data report with personally identifiable information included. Drafts are skipped. Each import replaces the previous project roster, so correct any teammate email to their accepted application email in the CSV before re-importing.</p>
                   <form onSubmit={importCsv} className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
-                    <label className="flex-1 text-sm">Devpost CSV
-                      <input name="csv" type="file" accept=".csv,text/csv" required className="mt-2 block w-full min-w-0 rounded-xl border border-white/20 p-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-100 file:px-3 file:py-2 file:text-[#0d2243]" />
+                    <label className="flex-1 text-base">Devpost CSV
+                      <input name="csv" type="file" accept=".csv,text/csv" required className="mt-2 block w-full min-w-0 rounded-xl border border-white/20 p-3 text-base file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-100 file:px-3 file:py-2 file:text-[#0d2243]" />
                     </label>
                     <button type="submit" disabled={busy === 'import'} className={actionButton}>Import projects</button>
                   </form>
@@ -436,7 +438,7 @@ export default function Organizer() {
               )}
               {overview?.projects?.length > 0 && (
                 <div className="mt-6 max-h-72 overflow-auto rounded-xl border border-white/20">
-                  <table className="w-full min-w-[34rem] text-left text-sm">
+                  <table className="w-full min-w-[34rem] text-left text-base">
                     <thead className="bg-white/10"><tr><th className="p-3">Project</th><th className="p-3">Matched</th><th className="p-3">Status</th></tr></thead>
                     <tbody>{overview.projects.map((project) => (
                       <tr key={project.id} className="border-t border-white/10">
@@ -456,12 +458,12 @@ export default function Organizer() {
                 <p className="mt-3 text-cyan-100">Assignments are locked: {overview.settings.room_count} rooms, starting {overview.settings.start_time}. This action cannot be repeated.</p>
               ) : (
                 <>
-                  <p className="mt-2 text-sm text-cyan-100">Preview as often as needed. Each room gets {EVENT_DETAILS.judgingWindowMinutes / (EVENT_DETAILS.pitchMinutes + EVENT_DETAILS.changeoverMinutes)} slots in the {EVENT_DETAILS.judgingWindowMinutes}-minute judging window: {EVENT_DETAILS.pitchMinutes} minutes to pitch and {EVENT_DETAILS.changeoverMinutes} minute to change over.</p>
+                  <p className="mt-2 text-base text-cyan-100">Preview as often as needed. Each room gets {EVENT_DETAILS.judgingWindowMinutes / (EVENT_DETAILS.pitchMinutes + EVENT_DETAILS.changeoverMinutes)} slots in the {EVENT_DETAILS.judgingWindowMinutes}-minute judging window: {EVENT_DETAILS.pitchMinutes} minutes to pitch and {EVENT_DETAILS.changeoverMinutes} minute to change over.</p>
                   <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                    <label className="text-sm">Number of rooms
+                    <label className="text-base">Number of rooms
                       <input type="number" min="1" max="100" value={roomCount} onChange={(event) => setRoomCount(event.target.value)} className="mt-2 block w-full rounded-xl border border-white/20 bg-white px-4 py-3 text-[#0d2243]" />
                     </label>
-                    <label className="text-sm">Start time (24-hour HH:MM)
+                    <label className="text-base">Start time (24-hour HH:MM)
                       <input type="text" inputMode="numeric" placeholder={EVENT_DETAILS.defaultJudgingStart} maxLength={5} pattern="([01][0-9]|2[0-3]):[0-5][0-9]" value={startTime} onChange={(event) => setStartTime(event.target.value)} className="mt-2 block w-full rounded-xl border border-white/20 bg-white px-4 py-3 text-[#0d2243]" />
                     </label>
                   </div>
@@ -479,7 +481,7 @@ export default function Organizer() {
                         <label className="mt-3 flex items-start gap-2"><input type="checkbox" checked={unmatchedConfirmed} onChange={(event) => setUnmatchedConfirmed(event.target.checked)} className="mt-1" /> Schedule them anyway.</label>
                       </div>}
                       {!!preview.assignments.length && <div className="mt-4 max-h-64 overflow-auto rounded-xl border border-white/20">
-                        <table className="w-full min-w-[28rem] text-left text-sm"><thead className="bg-white/10"><tr><th className="p-3">Project</th><th className="p-3">Room</th><th className="p-3">Pitch</th></tr></thead>
+                        <table className="w-full min-w-[28rem] text-left text-base"><thead className="bg-white/10"><tr><th className="p-3">Project</th><th className="p-3">Room</th><th className="p-3">Pitch</th></tr></thead>
                           <tbody>{preview.assignments.map((assignment) => <tr key={assignment.id} className="border-t border-white/10"><td className="p-3">{assignment.title}</td><td className="p-3">{assignment.room}</td><td className="p-3">{assignment.pitchTime}</td></tr>)}</tbody>
                         </table>
                       </div>}
@@ -493,9 +495,9 @@ export default function Organizer() {
             <section className="rounded-3xl border border-white/15 bg-[#14365d] p-6 sm:p-8">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3"><Trophy className="text-cyan-200" /><h2 className="font-bungee text-xl">Judging results</h2></div>
-                <button type="button" onClick={loadResults} className="text-sm text-cyan-100 underline hover:text-white">Refresh</button>
+                <button type="button" onClick={loadResults} className="text-base text-cyan-100 underline hover:text-white">Refresh</button>
               </div>
-              <p className="mt-2 text-sm text-cyan-100">Judges sign in at <a href="/judges" target="_blank" rel="noreferrer" className="underline">onhacks.ca/judges</a> with their name and the judge password, then rate each imported project from 1 to 5 with optional comments. Projects are ranked by average rating.</p>
+              <p className="mt-2 text-base text-cyan-100">Judges sign in at <a href="/judges" target="_blank" rel="noreferrer" className="underline">onhacks.ca/judges</a> with their name and the judge password, then rate each imported project from 1 to 5 with optional comments. Projects are ranked by average rating.</p>
               {resultsError && <p role="alert" className="mt-4 rounded-xl bg-red-100 p-4 text-red-900">{resultsError}</p>}
               {results && !results.length && <p className="mt-4 text-cyan-100">No projects yet. Import the Devpost CSV above and they appear for judges right away.</p>}
               {results && results.length > 0 && (
@@ -504,13 +506,13 @@ export default function Organizer() {
                     <li key={result.id} className="rounded-2xl border border-white/15 bg-white/5 p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-xs uppercase tracking-widest text-cyan-200">#{index + 1}{result.room != null ? ` · Room ${result.room}${result.pitchTime ? ` · ${result.pitchTime}` : ''}` : ''}</p>
+                          <p className="text-sm uppercase tracking-widest text-cyan-200">#{index + 1}{result.room != null ? ` · Room ${result.room}${result.pitchTime ? ` · ${result.pitchTime}` : ''}` : ''}</p>
                           <a href={result.url} target="_blank" rel="noreferrer" className="mt-1 block font-semibold underline-offset-4 hover:underline">{result.title}</a>
                         </div>
-                        <p className="shrink-0 text-right"><span className="font-bungee text-2xl">{result.average ?? '—'}</span><span className="block text-xs text-cyan-100">{result.ratingCount} rating{result.ratingCount === 1 ? '' : 's'}</span></p>
+                        <p className="shrink-0 text-right"><span className="font-bungee text-2xl">{result.average ?? '—'}</span><span className="block text-sm text-cyan-100">{result.ratingCount} rating{result.ratingCount === 1 ? '' : 's'}</span></p>
                       </div>
                       {result.reviews.length > 0 && (
-                        <details className="mt-3 text-sm">
+                        <details className="mt-3 text-base">
                           <summary className="cursor-pointer text-cyan-100">Judges&apos; ratings and comments</summary>
                           <ul className="mt-2 space-y-2">
                             {result.reviews.map((review) => (

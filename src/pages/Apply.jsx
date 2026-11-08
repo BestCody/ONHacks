@@ -8,10 +8,12 @@ import { Label } from '@/components/ui/label';
 import { ArrowLeft, Loader2, Send } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { APPLICATIONS_CLOSED_MESSAGE, applicationsClosed } from '@/eventDetails';
+import { useScreenScale } from '@/hooks/useScreenScale';
 
 const BG = '/assets/apply-bg.webp';
 
 export default function Apply() {
+  useScreenScale();
   const navigate = useNavigate();
   const { user } = useAuth();
 

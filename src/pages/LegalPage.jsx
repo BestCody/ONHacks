@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { EVENT_DETAILS } from '@/eventDetails';
+import { useScreenScale } from '@/hooks/useScreenScale';
 
 const DOCUMENTS = {
   privacy: {
@@ -121,6 +122,7 @@ const DOCUMENTS = {
 };
 
 export default function LegalPage({ document = 'privacy' }) {
+  useScreenScale();
   const content = DOCUMENTS[document] || DOCUMENTS.privacy;
 
   return (

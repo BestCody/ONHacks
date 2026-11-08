@@ -4,10 +4,12 @@ import { Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
+import { useScreenScale } from '@/hooks/useScreenScale';
 
 const BG = '/assets/apply-bg.webp';
 
 export default function VerifyEmail() {
+  useScreenScale();
   const navigate = useNavigate();
   const { verifyEmail } = useAuth();
   const [token, setToken] = useState(() => {

@@ -1075,3 +1075,9 @@
     }
   }
 }
+
+/* Judging and organizer tools scale with the screen: their sizes are rem-based, so the root
+   size grows from 16px on phones to 22px on large monitors (useScreenScale toggles the class). */
+html.ui-scale {
+  font-size: clamp(16px, calc(0.5vw + 10px), 22px);
+}

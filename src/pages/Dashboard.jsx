@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { formatParticipantName } from '@/participantName';
 import { APPLICATIONS_CLOSED_MESSAGE, applicationsClosed } from '@/eventDetails';
+import { useScreenScale } from '@/hooks/useScreenScale';
 
 const BG = '/assets/apply-bg.webp';
 
 export default function Dashboard() {
+  useScreenScale();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(false);

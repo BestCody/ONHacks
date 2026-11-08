@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, LogOut } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { EVENT_DETAILS } from '@/eventDetails';
+import { useScreenScale } from '@/hooks/useScreenScale';
 
 export default function Participant() {
+  useScreenScale();
   const { signOut: endSession } = useAuth();
   const [participant, setParticipant] = useState(null);
   const [qrImage, setQrImage] = useState('');
