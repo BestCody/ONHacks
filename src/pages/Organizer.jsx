@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Camera, Check, FileUp, LockKeyhole, LogOut, Trophy, Waves, X } from 'lucide-react';
+import { Camera, Check, FileUp, LockKeyhole, LogOut, Waves, X } from 'lucide-react';
 import { EVENT_DETAILS } from '@/eventDetails';
 import { useScreenScale } from '@/hooks/useScreenScale';
 
@@ -42,8 +42,6 @@ export default function Organizer() {
   const [scanFeedback, setScanFeedback] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [importResult, setImportResult] = useState(null);
-  const [results, setResults] = useState(null);
-  const [resultsError, setResultsError] = useState('');
   const videoRef = useRef(null);
   const scannerControls = useRef(null);
   const scanLocked = useRef(false);
@@ -76,20 +74,9 @@ export default function Organizer() {
     return () => { active = false; };
   }, []);
 
-  async function loadResults() {
-    try {
-      const data = await organizerRequest('/api/organizer/judging-results');
-      setResults(data.results);
-      setResultsError('');
-    } catch (error) {
-      setResultsError(error.message);
-    }
-  }
-
   useEffect(() => {
     if (session !== 'signed-in') return;
     loadOverview().catch((error) => setPageError(error.message));
-    loadResults();
   }, [session]);
 
   useEffect(() => {
@@ -186,8 +173,6 @@ export default function Organizer() {
     setUnmatchedConfirmed(false);
     previewFingerprint.current = '';
     setImportResult(null);
-    setResults(null);
-    setResultsError('');
     setPageError('');
   }
 
@@ -250,7 +235,7 @@ export default function Organizer() {
         method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: await file.text(),
       });
       setImportResult(data);
-      await Promise.all([loadOverview(), loadResults()]);
+      await loadOverview();
     } catch (error) {
       setPageError(error.message);
     } finally {
@@ -307,8 +292,6 @@ export default function Organizer() {
         ) : (
           <div className="mt-8 space-y-6">
             {pageError && <p role="alert" className="rounded-xl bg-red-100 p-4 text-red-900">{pageError}</p>}
-            {overview && <p className="text-base text-cyan-100">{overview.acceptedCount} accepted participants · {overview.waiverCount} waivers submitted · {overview.rsvpCount} RSVPs · {overview.projects.length} imported projects · {overview.unprintedCount} badges not yet generated</p>}
-
             <section className="rounded-3xl border border-white/15 bg-[#14365d] p-6 sm:p-8">
               <div className="flex items-center gap-3"><Camera className="text-cyan-200" /><h2 className="font-bungee text-xl">Scan meal QR</h2></div>
               <p className="mt-2 text-base text-cyan-100">Each participant can receive up to {EVENT_DETAILS.mealLimitPerParticipant} meals. Scanning pauses until you choose to scan again.</p>
@@ -414,45 +397,6 @@ export default function Organizer() {
                 </>
               )}
             </section>
-
-            <section className="rounded-3xl border border-white/15 bg-[#14365d] p-6 sm:p-8">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3"><Trophy className="text-cyan-200" /><h2 className="font-bungee text-xl">Judging results</h2></div>
-                <button type="button" onClick={loadResults} className="text-base text-cyan-100 underline hover:text-white">Refresh</button>
-              </div>
-              <p className="mt-2 text-base text-cyan-100">Judges sign in at <a href="/judges" target="_blank" rel="noreferrer" className="underline">onhacks.ca/judges</a> with their name and the judge password, then rate each imported project from 1 to 5 with optional comments. Projects are ranked by average rating, then by how many judges rated them. Check the rating counts before picking winners: one high rating can outrank several.</p>
-              {resultsError && <p role="alert" className="mt-4 rounded-xl bg-red-100 p-4 text-red-900">{resultsError}</p>}
-              {results && !results.length && <p className="mt-4 text-cyan-100">No projects yet. Import the Devpost CSV above and they appear for judges right away.</p>}
-              {results && results.length > 0 && (
-                <ol className="mt-5 space-y-3">
-                  {results.map((result, index) => (
-                    <li key={result.id} className="rounded-2xl border border-white/15 bg-white/5 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm uppercase tracking-widest text-cyan-200">{result.ratingCount ? `#${index + 1}` : 'Unrated'}{result.room != null ? ` · Room ${result.room}${result.pitchTime ? ` · ${result.pitchTime}` : ''}` : ''}</p>
-                          <a href={result.url} target="_blank" rel="noreferrer" className="mt-1 block font-semibold underline-offset-4 hover:underline">{result.title}</a>
-                        </div>
-                        <p className="shrink-0 text-right"><span className="font-bungee text-2xl">{result.average ?? '—'}</span><span className="block text-sm text-cyan-100">{result.ratingCount} rating{result.ratingCount === 1 ? '' : 's'}</span></p>
-                      </div>
-                      {result.reviews.length > 0 && (
-                        <details className="mt-3 text-base">
-                          <summary className="cursor-pointer text-cyan-100">Judges&apos; ratings and comments</summary>
-                          <ul className="mt-2 space-y-2">
-                            {result.reviews.map((review) => (
-                              <li key={review.judge} className="rounded-xl bg-white/5 p-3">
-                                <p className="font-semibold">{review.judge} · {review.score ? `${review.score}/5` : 'No rating'}</p>
-                                {review.comment && <p className="mt-1 whitespace-pre-line text-cyan-50">{review.comment}</p>}
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </section>
-
           </div>
         )}
       </div>
