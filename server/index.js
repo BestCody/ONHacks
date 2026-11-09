@@ -14,6 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APPLICATIONS_CLOSED_MESSAGE, applicationsClosed } from '../src/eventDetails.js';
 import { APP_PATHS } from '../src/routes.js';
+import { buildAcceptanceEmail } from './acceptanceEmail.js';
 import { clientIpKey } from './clientIp.js';
 import { emailSettings, sendEmail } from './email.js';
 import { eventOperationsSchema, mountEventOperations, purgeExpiredWaivers } from './eventOperations.js';
@@ -730,14 +731,52 @@ function validateEventApplication(body = {}) {
 }
 
 // Organizer-approved late applicants: they may apply after the deadline and are accepted on
-// submission, with no receipt email. Kept as SHA-256 of the lowercased email so the addresses
-// stay out of this public repo.
+// submission, getting the acceptance email instead of a receipt. Kept as SHA-256 of the
+// lowercased email so the addresses stay out of this public repo.
 const LATE_APPLICANT_HASHES = new Set([
   '2af8789ca253276ce1f688d36ba52f538a88549edcfccb9d118d6c471148c7fc',
 ]);
 
 function isLateApplicant(email) {
   return LATE_APPLICANT_HASHES.has(createHash('sha256').update(String(email || '').toLowerCase()).digest('hex'));
+}
+
+// Sends a late applicant the normal acceptance email right after they apply, recorded the same
+// way as `npm run applicants`: the attempt is claimed first so it can never go out twice, cleared
+// again only when Brevo clearly refused it (so `applicants -- accept <id> --send` can retry), and
+// left "Unconfirmed" when Brevo gave no clear answer. Never throws.
+async function sendLateAcceptance(applicationId, application) {
+  if (!emailEnabled) return;
+  try {
+    const claimed = await pool.query(
+      `UPDATE event_applications SET acceptance_email_attempted_at = NOW()
+       WHERE id = $1 AND acceptance_email_sent_at IS NULL AND acceptance_email_attempted_at IS NULL
+       RETURNING id`,
+      [applicationId],
+    );
+    if (!claimed.rowCount) return;
+    const email = buildAcceptanceEmail(application.fullName);
+    try {
+      await sendSiteEmail('acceptance', {
+        to: application.email,
+        toName: application.fullName,
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
+        replyTo: email.replyTo,
+        tags: ['acceptance'],
+      });
+    } catch (error) {
+      if (!error.uncertain) {
+        await pool.query('UPDATE event_applications SET acceptance_email_attempted_at = NULL WHERE id = $1', [applicationId]);
+      }
+      console.error(`Late acceptance email for #${applicationId} ${error.uncertain ? 'is unconfirmed' : 'failed'}:`, String(error?.message || error).slice(0, 200));
+      return;
+    }
+    await pool.query('UPDATE event_applications SET acceptance_email_sent_at = NOW() WHERE id = $1', [applicationId]);
+  } catch (error) {
+    console.error(`Late acceptance email for #${applicationId} could not be recorded:`, String(error?.message || error).slice(0, 200));
+  }
 }
 
 async function sendApplicationReceipt(application) {
@@ -1302,9 +1341,10 @@ app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applica
 
   response.status(201).json({ application: savedApplication });
   // The application is saved; the receipt goes out afterwards so a slow email doesn't hold the
-  // applicant on a spinner (sendApplicationReceipt never throws). Late applicants are already
-  // accepted, so a "we'll review it" receipt would mislead them.
-  if (!lateApplicant) sendApplicationReceipt(application);
+  // applicant on a spinner (neither sender throws). Late applicants are already accepted, so they
+  // get the acceptance email; a "we'll review it" receipt would mislead them.
+  if (lateApplicant) sendLateAcceptance(savedApplication.id, application);
+  else sendApplicationReceipt(application);
   return undefined;
 });
 
