@@ -21,7 +21,8 @@ export default function Dashboard() {
   const [applicationError, setApplicationError] = useState(false);
   const [statusRetry, setStatusRetry] = useState(0);
   const [signOutError, setSignOutError] = useState('');
-  const closed = applicationsClosed();
+  const [lateApplicant, setLateApplicant] = useState(false);
+  const closed = applicationsClosed() && !lateApplicant;
 
   useEffect(() => {
     let active = true;
@@ -37,6 +38,7 @@ export default function Dashboard() {
         if (active) {
           setApplication(data.application || null);
           setRsvpConfirmed(Boolean(data.application?.rsvp_at));
+          setLateApplicant(Boolean(data.lateApplicant));
         }
       })
       .catch(() => {

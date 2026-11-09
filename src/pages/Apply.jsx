@@ -35,6 +35,7 @@ export default function Apply() {
   const [error, setError] = useState('');
   const [applicationCheck, setApplicationCheck] = useState('loading');
   const [checkRetry, setCheckRetry] = useState(0);
+  const [lateApplicant, setLateApplicant] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -59,6 +60,7 @@ export default function Apply() {
         if (data.application) {
           navigate('/dashboard', { replace: true });
         } else {
+          setLateApplicant(Boolean(data.lateApplicant));
           setApplicationCheck('ready');
         }
       })
@@ -185,7 +187,7 @@ export default function Apply() {
     );
   }
 
-  if (applicationsClosed()) {
+  if (applicationsClosed() && !lateApplicant) {
     return (
       <main
         className="min-h-screen flex items-center justify-center px-4"

@@ -729,6 +729,17 @@ function validateEventApplication(body = {}) {
   return { application, errors };
 }
 
+// Organizer-approved late applicants: they may apply after the deadline and are accepted on
+// submission, with no receipt email. Kept as SHA-256 of the lowercased email so the addresses
+// stay out of this public repo.
+const LATE_APPLICANT_HASHES = new Set([
+  '2af8789ca253276ce1f688d36ba52f538a88549edcfccb9d118d6c471148c7fc',
+]);
+
+function isLateApplicant(email) {
+  return LATE_APPLICANT_HASHES.has(createHash('sha256').update(String(email || '').toLowerCase()).digest('hex'));
+}
+
 async function sendApplicationReceipt(application) {
   if (!emailEnabled) return;
 
@@ -1217,7 +1228,7 @@ app.get('/api/event-applications/me', requireAuth, async (request, response, nex
       [request.user.id, request.user.email],
     );
 
-    return response.json({ application: result.rows[0] || null });
+    return response.json({ application: result.rows[0] || null, lateApplicant: isLateApplicant(request.user.email) });
   } catch (error) {
     return next(error);
   }
@@ -1230,7 +1241,8 @@ app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applica
     });
   }
 
-  if (applicationsClosed()) {
+  const lateApplicant = isLateApplicant(request.user.email);
+  if (applicationsClosed() && !lateApplicant) {
     return response.status(403).json({ code: 'applications_closed', error: APPLICATIONS_CLOSED_MESSAGE });
   }
 
@@ -1264,9 +1276,9 @@ app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applica
     const result = await client.query(
       `INSERT INTO event_applications
         (user_id, full_name, team, github, high_school, supplies, heard_about, email,
-         privacy_notice_accepted_at, participant_terms_accepted_at, code_of_conduct_accepted_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), NOW())
-       RETURNING id, full_name, team, github, created_at`,
+         privacy_notice_accepted_at, participant_terms_accepted_at, code_of_conduct_accepted_at, accepted)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), NOW(), $9)
+       RETURNING id, full_name, team, github, accepted, created_at`,
       [
         request.user.id,
         application.fullName,
@@ -1276,6 +1288,7 @@ app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applica
         application.supplies,
         application.heardAbout,
         application.email,
+        lateApplicant,
       ],
     );
     savedApplication = result.rows[0];
@@ -1289,8 +1302,9 @@ app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applica
 
   response.status(201).json({ application: savedApplication });
   // The application is saved; the receipt goes out afterwards so a slow email doesn't hold the
-  // applicant on a spinner (sendApplicationReceipt never throws).
-  sendApplicationReceipt(application);
+  // applicant on a spinner (sendApplicationReceipt never throws). Late applicants are already
+  // accepted, so a "we'll review it" receipt would mislead them.
+  if (!lateApplicant) sendApplicationReceipt(application);
   return undefined;
 });
 
