@@ -11,6 +11,8 @@ const FILTERS = [
   { id: 'done', label: 'Rated' },
 ];
 
+const scoresOf = (projects) => new Map(projects.map((project) => [project.id, project.review.score]));
+
 async function request(url, options = {}) {
   let response;
   try {
@@ -302,6 +304,9 @@ export default function Judges() {
   const [filter, setFilter] = useState('all');
   // Projects rated while "To Rate" is showing stay visible until the filter changes.
   const [justRated, setJustRated] = useState(() => new Set());
+  // "Rated" ranks by the scores at the moment it opens, so changing a rating there doesn't make
+  // the card jump out from under the judge. Reopening the tab or refreshing re-ranks the list.
+  const [rankScores, setRankScores] = useState(() => new Map());
 
   useEffect(() => {
     document.title = 'Judging · ONHacks 2026';
@@ -326,6 +331,7 @@ export default function Judges() {
     try {
       const data = await request('/api/judges/projects');
       setProjects(data.projects);
+      setRankScores(scoresOf(data.projects));
     } catch (failure) {
       if (failure.status === 401) signedOut(failure.message);
       else setLoadError(failure.message);
@@ -351,13 +357,14 @@ export default function Judges() {
   function chooseFilter(id) {
     setFilter(id);
     setJustRated(new Set());
+    if (id === 'done' && projects) setRankScores(scoresOf(projects));
   }
 
   const ratedCount = projects?.filter((project) => project.review.score).length || 0;
   const visible = useMemo(() => {
     if (!projects) return [];
     const terms = normalize(query).split(/\s+/).filter(Boolean);
-    return projects.filter((project) => {
+    const matching = projects.filter((project) => {
       const rated = Boolean(project.review.score);
       if (filter === 'todo' && rated && !justRated.has(project.id)) return false;
       if (filter === 'done' && !rated) return false;
@@ -368,7 +375,11 @@ export default function Judges() {
       ].join(' '));
       return terms.every((term) => haystack.includes(term));
     });
-  }, [projects, query, filter, justRated]);
+    if (filter !== 'done') return matching;
+    // Highest rating first; projects with the same rating keep their room and pitch order.
+    const rank = (project) => rankScores.get(project.id) ?? project.review.score;
+    return matching.sort((a, b) => rank(b) - rank(a));
+  }, [projects, query, filter, justRated, rankScores]);
 
   if (session === null) {
     return <main style={{ fontFamily: FONT }} className="min-h-screen bg-[#f5f5f7] p-8 text-[1.0625rem] text-[#6e6e73]">Loading…</main>;
