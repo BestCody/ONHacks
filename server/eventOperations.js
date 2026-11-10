@@ -245,6 +245,29 @@ function normalizeHeader(header) {
   return header.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+// Gmail ignores dots and anything after a "+" before the @, and treats googlemail.com as
+// gmail.com, so every such spelling reaches the same inbox and counts as one address. Other
+// providers are matched exactly (ignoring case), since their dots can matter.
+export function canonicalEmail(email) {
+  const value = String(email || '').trim().toLowerCase();
+  const at = value.lastIndexOf('@');
+  const domain = value.slice(at + 1);
+  if (at < 1 || (domain !== 'gmail.com' && domain !== 'googlemail.com')) return value;
+  const local = value.slice(0, at).split('+')[0].replace(/\./g, '');
+  return local ? `${local}@gmail.com` : value;
+}
+
+// Looks up an accepted application by any spelling of its email. An address that two
+// accepted applications share matches neither (null), so nobody is linked to the wrong team.
+export function applicationLookup(rows) {
+  const byEmail = new Map();
+  for (const row of rows) {
+    const key = canonicalEmail(row.email);
+    byEmail.set(key, byEmail.has(key) ? null : row.id);
+  }
+  return (email) => byEmail.get(canonicalEmail(email)) || null;
+}
+
 function parseDevpostCsv(csv) {
   // Devpost's header ends with a "..." column and the second and later team members' name and
   // email cells are written past it, so rows can be longer than the header. Read rows as arrays.
@@ -782,20 +805,12 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
           await client.query('ROLLBACK');
           return response.status(409).json({ error: 'Judging assignments are locked. Devpost imports can no longer change the roster.' });
         }
-        const allEmails = [...new Set(projects.flatMap((project) => [...project.emails]))];
-        const matches = await client.query(
-          `SELECT id, lower(email) AS email FROM event_applications
-           WHERE accepted = TRUE AND lower(email) = ANY($1::text[])`,
-          [allEmails],
-        );
-        const applicationByEmail = new Map();
-        for (const row of matches.rows) {
-          if (applicationByEmail.has(row.email)) applicationByEmail.set(row.email, null);
-          else applicationByEmail.set(row.email, row.id);
-        }
+        // All accepted applications (a few hundred at most), so Gmail spellings can be compared.
+        const accepted = await client.query('SELECT id, email FROM event_applications WHERE accepted = TRUE');
+        const applicationFor = applicationLookup(accepted.rows);
         let unmatchedCount = 0;
         for (const project of projects) {
-          const unmatched = [...project.emails].filter((email) => !applicationByEmail.get(email));
+          const unmatched = [...project.emails].filter((email) => !applicationFor(email));
           if (!project.emails.size) unmatched.push('(no team-member emails)');
           unmatchedCount += unmatched.length;
           let saved;
@@ -815,8 +830,7 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
           }
           const id = saved.rows[0].id;
           await client.query('DELETE FROM devpost_project_members WHERE project_id = $1', [id]);
-          const memberIds = [...new Set([...project.emails]
-            .map((email) => applicationByEmail.get(email)).filter(Boolean))];
+          const memberIds = [...new Set([...project.emails].map(applicationFor).filter(Boolean))];
           for (const memberId of memberIds) {
             await client.query(
               'INSERT INTO devpost_project_members (project_id, application_id) VALUES ($1, $2)',
