@@ -735,6 +735,7 @@ function validateEventApplication(body = {}) {
 // lowercased email so the addresses stay out of this public repo.
 const LATE_APPLICANT_HASHES = new Set([
   '2af8789ca253276ce1f688d36ba52f538a88549edcfccb9d118d6c471148c7fc',
+  '8c4f724768ee3ab3106e697e7d49438699c54c88de523aaa03108b553957ceb9',
 ]);
 
 function isLateApplicant(email) {
