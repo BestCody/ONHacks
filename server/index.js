@@ -17,7 +17,7 @@ import { APP_PATHS } from '../src/routes.js';
 import { buildAcceptanceEmail } from './acceptanceEmail.js';
 import { clientIpKey } from './clientIp.js';
 import { emailSettings, sendEmail } from './email.js';
-import { eventOperationsSchema, mountEventOperations, purgeExpiredWaivers } from './eventOperations.js';
+import { canonicalEmail, eventOperationsSchema, mountEventOperations, purgeExpiredWaivers } from './eventOperations.js';
 import { judgingSchema, mountJudging } from './judging.js';
 
 const { Pool } = pg;
@@ -736,10 +736,15 @@ function validateEventApplication(body = {}) {
 const LATE_APPLICANT_HASHES = new Set([
   '2af8789ca253276ce1f688d36ba52f538a88549edcfccb9d118d6c471148c7fc',
   '8c4f724768ee3ab3106e697e7d49438699c54c88de523aaa03108b553957ceb9',
+  '7266c38e18bc9a1641144c96059aed5fcecd6c96173b1717764b390245d00188',
+  'bd87d2ea29e3f9cef2de10921c47ba9a29e116344268e16ae6a22df618d7b8de',
+  '6bc176992622d567305e13bf4d090c7279468f29eaad3da6e3f7aae641e3d867',
 ]);
 
+// Hashes the canonical form (lowercase; Gmail without dots or +tags), so a Gmail address
+// matches however the applicant spells it when signing up.
 function isLateApplicant(email) {
-  return LATE_APPLICANT_HASHES.has(createHash('sha256').update(String(email || '').toLowerCase()).digest('hex'));
+  return LATE_APPLICANT_HASHES.has(createHash('sha256').update(canonicalEmail(email)).digest('hex'));
 }
 
 // Sends a late applicant the normal acceptance email right after they apply, recorded the same
