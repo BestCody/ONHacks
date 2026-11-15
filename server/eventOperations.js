@@ -10,9 +10,9 @@ const organizerCookie = process.env.NODE_ENV === 'production'
   ? '__Host-onhacks_organizer' : 'onhacks_organizer';
 // Long enough for a 7 AM setup sign-in to last past closing without signing in again mid-judging.
 const organizerSessionSeconds = 16 * 60 * 60;
-const slotMinutes = EVENT_DETAILS.pitchMinutes + EVENT_DETAILS.changeoverMinutes;
+const slotMinutes = EVENT_DETAILS.pitchMinutes + EVENT_DETAILS.qaMinutes + EVENT_DETAILS.changeoverMinutes;
 const windowMinutes = EVENT_DETAILS.judgingWindowMinutes;
-// Whole slots that fit in the judging window in one room (150 minutes of 8-minute slots is 18).
+// Whole slots that fit in the judging window in one room (150 minutes of 11-minute slots is 13).
 const slotsPerRoomInWindow = Math.floor(windowMinutes / slotMinutes);
 const defaultStart = EVENT_DETAILS.defaultJudgingStart;
 
