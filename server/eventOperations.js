@@ -12,6 +12,8 @@ const organizerCookie = process.env.NODE_ENV === 'production'
 const organizerSessionSeconds = 16 * 60 * 60;
 const slotMinutes = EVENT_DETAILS.pitchMinutes + EVENT_DETAILS.changeoverMinutes;
 const windowMinutes = EVENT_DETAILS.judgingWindowMinutes;
+// Whole slots that fit in the judging window in one room (150 minutes of 8-minute slots is 18).
+const slotsPerRoomInWindow = Math.floor(windowMinutes / slotMinutes);
 const defaultStart = EVENT_DETAILS.defaultJudgingStart;
 
 export const eventOperationsSchema = `
@@ -233,8 +235,8 @@ function makePreview(projects, roomCount, start, unmatchedCount) {
     startTime: start,
     endTime: formatTime(first + windowMinutes),
     projectedFinish: formatTime(first + slotsPerRoom * slotMinutes),
-    capacity: roomCount * (windowMinutes / slotMinutes),
-    minimumRooms: Math.ceil(projects.length / (windowMinutes / slotMinutes)),
+    capacity: roomCount * slotsPerRoomInWindow,
+    minimumRooms: Math.ceil(projects.length / slotsPerRoomInWindow),
     overtime,
     unmatchedCount,
     fingerprint,

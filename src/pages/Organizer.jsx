@@ -364,7 +364,7 @@ export default function Organizer() {
                 <p className="mt-3 text-cyan-100">Assignments are locked: {overview.settings.room_count} rooms, starting {overview.settings.start_time}. This action cannot be repeated.</p>
               ) : (
                 <>
-                  <p className="mt-2 text-base text-cyan-100">Preview as often as needed. Each room gets {EVENT_DETAILS.judgingWindowMinutes / (EVENT_DETAILS.pitchMinutes + EVENT_DETAILS.changeoverMinutes)} slots in the {EVENT_DETAILS.judgingWindowMinutes}-minute judging window: {EVENT_DETAILS.pitchMinutes} minutes to pitch and {EVENT_DETAILS.changeoverMinutes} minute to change over.</p>
+                  <p className="mt-2 text-base text-cyan-100">Preview as often as needed. Each room gets {Math.floor(EVENT_DETAILS.judgingWindowMinutes / (EVENT_DETAILS.pitchMinutes + EVENT_DETAILS.changeoverMinutes))} slots in the {EVENT_DETAILS.judgingWindowMinutes}-minute judging window: {EVENT_DETAILS.pitchMinutes} minutes to pitch and {EVENT_DETAILS.changeoverMinutes} minute to change over.</p>
                   <div className="mt-5 grid gap-4 sm:grid-cols-2">
                     <label className="text-base">Number of rooms
                       <input type="number" min="1" max="100" value={roomCount} onChange={(event) => setRoomCount(event.target.value)} className="mt-2 block w-full rounded-xl border border-white/20 bg-white px-4 py-3 text-[#0d2243]" />

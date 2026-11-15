@@ -6,7 +6,8 @@ export const EVENT_DETAILS = {
   defaultJudgingStart: '17:30',
   judgingWindowMinutes: 150,
   defaultJudgingRooms: 2,
-  pitchMinutes: 5,
+  // Each judging slot is the pitch plus a changeover: 7 + 1 = 8 minutes.
+  pitchMinutes: 7,
   changeoverMinutes: 1,
   badgeWidthInches: 4,
   badgeHeightInches: 6,
