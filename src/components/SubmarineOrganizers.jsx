@@ -15,7 +15,6 @@ const ORGANIZERS = [
   },
   { name: 'Daniel Farah', image: '/assets/organizers/Daniel Farah.png' },
   { name: 'Hanze Lou', image: '/assets/organizers/Hanze Lou.png' },
-  { name: 'Joel Daniel', image: '/assets/organizers/Joel Daniel.png' },
   { name: 'Maha Latify', image: '/assets/organizers/Maha Latify.png' },
   {
     name: 'Michelle Wu',
