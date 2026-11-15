@@ -2,10 +2,12 @@ export const EVENT_DETAILS = {
   dateLabel: 'NOVEMBER 15',
   venue: "Polish Combatants' Hall",
   venueMapUrl: 'https://www.google.com/maps/search/?api=1&query=Polish%20Combatants%27%20Hall%2C%20206%20Beverley%20St%2C%20Toronto%2C%20ON%20M5T%201Z3',
-  // Judging runs 17:30-20:00 in Room 1 and Room 2 (see the hacker package schedule).
-  defaultJudgingStart: '17:30',
-  judgingWindowMinutes: 150,
+  // Judging runs 17:40-20:00 (starting ten minutes after dinner ends so teams can get there) in
+  // Room 2 and Room 3. A third room, if the organizers set one, is Room 1.
+  defaultJudgingStart: '17:40',
+  judgingWindowMinutes: 140,
   defaultJudgingRooms: 2,
+  judgingRoomNumbers: [2, 3, 1],
   // Each judging slot is the pitch, Q&A and a changeover: 8 + 2 + 1 = 11 minutes.
   pitchMinutes: 8,
   qaMinutes: 2,

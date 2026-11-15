@@ -12,9 +12,15 @@ const organizerCookie = process.env.NODE_ENV === 'production'
 const organizerSessionSeconds = 16 * 60 * 60;
 const slotMinutes = EVENT_DETAILS.pitchMinutes + EVENT_DETAILS.qaMinutes + EVENT_DETAILS.changeoverMinutes;
 const windowMinutes = EVENT_DETAILS.judgingWindowMinutes;
-// Whole slots that fit in the judging window in one room (150 minutes of 11-minute slots is 13).
+// Whole slots that fit in the judging window in one room (140 minutes of 11-minute slots is 12).
 const slotsPerRoomInWindow = Math.floor(windowMinutes / slotMinutes);
 const defaultStart = EVENT_DETAILS.defaultJudgingStart;
+// The venue room the nth judging room is in (Room 2, then Room 3, then Room 1); past the listed
+// rooms, the numbers carry on after the highest one.
+function judgingRoomNumber(index) {
+  const listed = EVENT_DETAILS.judgingRoomNumbers;
+  return index < listed.length ? listed[index] : Math.max(...listed) + index - listed.length + 1;
+}
 
 export const eventOperationsSchema = `
   ALTER TABLE event_applications
@@ -211,7 +217,7 @@ function makePreview(projects, roomCount, start, unmatchedCount) {
   const assignments = projects.map((project, index) => ({
     id: Number(project.id),
     title: project.title,
-    room: (index % roomCount) + 1,
+    room: judgingRoomNumber(index % roomCount),
     slotIndex: Math.floor(index / roomCount),
     pitchTime: formatTime(first + Math.floor(index / roomCount) * slotMinutes),
   }));
