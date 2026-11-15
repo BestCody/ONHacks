@@ -17,7 +17,9 @@ import { APP_PATHS } from '../src/routes.js';
 import { buildAcceptanceEmail } from './acceptanceEmail.js';
 import { clientIpKey } from './clientIp.js';
 import { emailSettings, sendEmail } from './email.js';
-import { eventOperationsSchema, isLateApplicant, mountEventOperations, purgeExpiredWaivers } from './eventOperations.js';
+import {
+  eventOperationsSchema, isLateApplicant, mountEventOperations, purgeExpiredWaivers, reservedMealTokenKey,
+} from './eventOperations.js';
 import { judgingSchema, mountJudging } from './judging.js';
 
 const { Pool } = pg;
@@ -1320,6 +1322,16 @@ app.post('/api/event-applications', requireAuth, applicationIpRateLimit, applica
       ],
     );
     savedApplication = result.rows[0];
+    // A late applicant whose badge was printed before they applied takes that badge's meal QR
+    // code, and counts as printed so the badge run doesn't print them a second badge.
+    if (lateApplicant) {
+      await client.query(
+        `UPDATE event_applications SET meal_qr_token = s.value, printed = TRUE
+         FROM app_settings s
+         WHERE event_applications.id = $1 AND s.key = $2 AND event_applications.meal_qr_token IS NULL`,
+        [savedApplication.id, reservedMealTokenKey(request.user.email)],
+      );
+    }
     await client.query('COMMIT');
   } catch (error) {
     if (client) await client.query('ROLLBACK').catch(() => {});

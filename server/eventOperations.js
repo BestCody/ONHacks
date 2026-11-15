@@ -287,6 +287,12 @@ function canRsvpLate(email) {
   return LATE_RSVP_HASHES.has(emailHash(email));
 }
 
+// The app_settings key holding the meal QR token already printed on a late applicant's badge
+// before they applied; their application takes that token when it is saved.
+export function reservedMealTokenKey(email) {
+  return `reserved_meal_token:${emailHash(email)}`;
+}
+
 // Looks up an accepted application by any spelling of its email. An address that two
 // accepted applications share matches neither (null), so nobody is linked to the wrong team.
 export function applicationLookup(rows) {
