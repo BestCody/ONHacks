@@ -257,6 +257,36 @@ export function canonicalEmail(email) {
   return local ? `${local}@gmail.com` : value;
 }
 
+// Organizer-approved late applicants: they may apply after the deadline, are accepted on
+// submission (getting the acceptance email instead of a receipt) and may RSVP after the RSVP
+// deadline. Kept as SHA-256 of the canonical email (see canonicalEmail) so the addresses stay out
+// of this public repo and a Gmail address matches however it is spelled.
+const LATE_APPLICANT_HASHES = new Set([
+  '2af8789ca253276ce1f688d36ba52f538a88549edcfccb9d118d6c471148c7fc',
+  '8c4f724768ee3ab3106e697e7d49438699c54c88de523aaa03108b553957ceb9',
+  '7266c38e18bc9a1641144c96059aed5fcecd6c96173b1717764b390245d00188',
+  'bd87d2ea29e3f9cef2de10921c47ba9a29e116344268e16ae6a22df618d7b8de',
+  '6bc176992622d567305e13bf4d090c7279468f29eaad3da6e3f7aae641e3d867',
+  'f862d53b82947bb05f339347141f21172adbd97a613e1f556aa61badb5ded428',
+]);
+
+// Already-accepted hackers the organizers let RSVP after the deadline, on top of the late
+// applicants above.
+const LATE_RSVP_HASHES = new Set([
+  ...LATE_APPLICANT_HASHES,
+  '88bae56f156c19c64697609bd1190f26ad4fcecd1e7e943e8183a3647b69a609',
+]);
+
+const emailHash = (email) => createHash('sha256').update(canonicalEmail(email)).digest('hex');
+
+export function isLateApplicant(email) {
+  return LATE_APPLICANT_HASHES.has(emailHash(email));
+}
+
+function canRsvpLate(email) {
+  return LATE_RSVP_HASHES.has(emailHash(email));
+}
+
 // Looks up an accepted application by any spelling of its email. An address that two
 // accepted applications share matches neither (null), so nobody is linked to the wrong team.
 export function applicationLookup(rows) {
@@ -501,7 +531,10 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
     return result.rows[0] || null;
   }
 
-  async function checklistFor(db, application) {
+  // A hacker on the late RSVP list keeps the RSVP open after the deadline; lateRsvp tells the
+  // dashboard not to show the passed deadline to them.
+  async function checklistFor(db, application, user) {
+    const lateRsvp = rsvpClosed() && canRsvpLate(user.email);
     const files = await db.query(
       `SELECT id, file_name, byte_size, content_type, uploaded_at FROM waiver_files
        WHERE application_id = $1 ORDER BY id`,
@@ -520,7 +553,8 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
       },
       rsvpAt: application.rsvp_at,
       rsvpDeadline: EVENT_DETAILS.rsvpDeadline,
-      rsvpClosed: rsvpClosed(),
+      rsvpClosed: rsvpClosed() && !lateRsvp,
+      lateRsvp,
     };
   }
 
@@ -541,7 +575,7 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
     try {
       const application = await findAcceptedApplication(pool, request.user);
       if (!application) return notAcceptedYet(response);
-      return response.json(await checklistFor(pool, application));
+      return response.json(await checklistFor(pool, application, request.user));
     } catch (error) {
       return next(error);
     }
@@ -585,7 +619,7 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
           [application.id, contentType, waiverFileName(request.get('x-file-name'), contentType),
             request.body.length, request.body],
         );
-        const checklist = await checklistFor(client, application);
+        const checklist = await checklistFor(client, application, request.user);
         await client.query('COMMIT');
         return response.status(201).json(checklist);
       } catch (error) {
@@ -621,7 +655,7 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
         await client.query('ROLLBACK');
         return response.status(404).json({ error: 'That file does not exist.' });
       }
-      const checklist = await checklistFor(client, application);
+      const checklist = await checklistFor(client, application, request.user);
       await client.query('COMMIT');
       return response.json(checklist);
     } catch (error) {
@@ -657,7 +691,7 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
         );
         application = updated.rows[0];
       }
-      const checklist = await checklistFor(client, application);
+      const checklist = await checklistFor(client, application, request.user);
       await client.query('COMMIT');
       return response.json(checklist);
     } catch (error) {
@@ -672,11 +706,11 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
     try {
       const application = await findAcceptedApplication(pool, request.user);
       if (!application) return notAcceptedYet(response);
-      if (application.rsvp_at) return response.json(await checklistFor(pool, application));
+      if (application.rsvp_at) return response.json(await checklistFor(pool, application, request.user));
       if (!application.waiver_submitted_at) {
         return response.status(409).json({ error: 'Submit your signed waiver before you RSVP.' });
       }
-      if (rsvpClosed()) {
+      if (rsvpClosed() && !canRsvpLate(request.user.email)) {
         return response.status(409).json({
           code: 'rsvp_closed',
           error: `RSVPs closed on ${EVENT_DETAILS.rsvpDeadlineLabel}. Email hello@onhacks.ca if you still plan to attend.`,
@@ -691,7 +725,7 @@ export function mountEventOperations(app, { pool, requireAuth, parseCookies, app
       if (!updated.rowCount) {
         return response.status(409).json({ error: 'Submit your signed waiver before you RSVP.' });
       }
-      return response.json(await checklistFor(pool, updated.rows[0]));
+      return response.json(await checklistFor(pool, updated.rows[0], request.user));
     } catch (error) {
       return next(error);
     }

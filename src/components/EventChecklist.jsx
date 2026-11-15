@@ -162,7 +162,7 @@ export default function EventChecklist({ onChange }) {
     );
   }
 
-  const { waiver, rsvpAt, rsvpClosed } = checklist;
+  const { waiver, rsvpAt, rsvpClosed, lateRsvp } = checklist;
   const submitted = Boolean(waiver.submittedAt);
   const files = waiver.files;
 
@@ -170,7 +170,11 @@ export default function EventChecklist({ onChange }) {
     <div className="rounded-xl border border-black/10 bg-[#f8fafc] p-5 mb-6">
       <h2 className="font-bungee text-lg text-[#0A1A2A]">Before the event</h2>
       {!rsvpAt && !rsvpClosed && (
-        <p className="text-black/60 mt-1">Finish both steps by {EVENT_DETAILS.rsvpDeadlineLabel} at 11:59 PM to keep your spot.</p>
+        <p className="text-black/60 mt-1">
+          {lateRsvp
+            ? 'Finish both steps before you arrive.'
+            : `Finish both steps by ${EVENT_DETAILS.rsvpDeadlineLabel} at 11:59 PM to keep your spot.`}
+        </p>
       )}
 
       <section className="mt-5" aria-labelledby="waiver-step">
@@ -273,7 +277,7 @@ export default function EventChecklist({ onChange }) {
           <>
             <p className="text-black/60 mt-2">
               {submitted
-                ? `Let us know you're coming by ${EVENT_DETAILS.rsvpDeadlineLabel} at 11:59 PM.`
+                ? (lateRsvp ? "Let us know you're coming." : `Let us know you're coming by ${EVENT_DETAILS.rsvpDeadlineLabel} at 11:59 PM.`)
                 : 'Submit your signed waiver first to unlock this step.'}
             </p>
             <Button
